@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
+    "pretypecheck": "pnpm --filter @shorir/contracts build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prelint": "pnpm --filter @shorir/contracts build",
     "lint": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/server.js"
   },
