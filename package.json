@@ -1,0 +1,27 @@
+{
+  "name": "shorir-ai-codefront",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SHORIR AI CodeFront final-round monorepo scaffold.",
+  "scripts": {
+    "dev": "pnpm --parallel dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "api:dev": "pnpm --filter @shorir/api dev",
+    "web:dev": "pnpm --filter @shorir/web dev",
+    "supabase": "supabase",
+    "supabase:version": "supabase --version",
+    "supabase:init": "supabase init",
+    "supabase:start": "supabase start",
+    "supabase:status": "supabase status",
+    "supabase:lint": "supabase db lint --local"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "supabase": "^2.107.0"
+  }
+}
