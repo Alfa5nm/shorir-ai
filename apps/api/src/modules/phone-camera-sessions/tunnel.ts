@@ -35,7 +35,7 @@ function startQuickTunnel() {
   }
 
   startupPromise = new Promise<string>((resolve, reject) => {
-    const child = spawn("cloudflared", ["tunnel", "--url", "http://localhost:5173"], {
+    const child = spawn("cloudflared", ["tunnel", "--url", "http://127.0.0.1:5173"], {
       windowsHide: true
     });
     tunnelProcess = child;
@@ -51,19 +51,8 @@ function startQuickTunnel() {
       }
       urlFound = true;
       publicUrl = match[0];
-      void waitForTunnel(publicUrl)
-        .then(() => {
-          settled = true;
-          resolve(publicUrl!);
-        })
-        .catch((error: unknown) => {
-          settled = true;
-          child.kill();
-          tunnelProcess = null;
-          publicUrl = null;
-          startupPromise = null;
-          reject(error);
-        });
+      settled = true;
+      resolve(publicUrl);
     };
 
     child.stdout.on("data", finishWithUrl);

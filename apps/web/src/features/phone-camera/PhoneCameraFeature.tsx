@@ -12,6 +12,7 @@ export function PhoneCameraFeature() {
   const streamRef = useRef<MediaStream | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const intervalRef = useRef<number | null>(null);
+  const phoneSignalBusyRef = useRef(false);
   const coachCandidatesRef = useRef(new Set<string>());
   const offerSdpRef = useRef<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -75,22 +76,28 @@ export function PhoneCameraFeature() {
       };
 
       const connect = async () => {
-        const signal = await apiClient.getPhoneCameraSignal(id);
-        if (signal.offer && signal.offer.sdp !== offerSdpRef.current) {
-          offerSdpRef.current = signal.offer.sdp;
-          coachCandidatesRef.current.clear();
-          await peer.setRemoteDescription(signal.offer);
-          const answer = await peer.createAnswer();
-          await peer.setLocalDescription(answer);
-          await apiClient.savePhoneCameraAnswer(id, serializeDescription(peer.localDescription!));
-        }
-        if (peer.remoteDescription) {
-          for (const candidate of signal.coachCandidates) {
-            if (!coachCandidatesRef.current.has(candidate.candidate)) {
-              coachCandidatesRef.current.add(candidate.candidate);
-              await peer.addIceCandidate(candidate);
+        if (phoneSignalBusyRef.current) return;
+        phoneSignalBusyRef.current = true;
+        try {
+          const signal = await apiClient.getPhoneCameraSignal(id);
+          if (signal.offer && signal.offer.sdp !== offerSdpRef.current) {
+            offerSdpRef.current = signal.offer.sdp;
+            coachCandidatesRef.current.clear();
+            await peer.setRemoteDescription(signal.offer);
+            const answer = await peer.createAnswer();
+            await peer.setLocalDescription(answer);
+            await apiClient.savePhoneCameraAnswer(id, serializeDescription(peer.localDescription!));
+          }
+          if (peer.remoteDescription) {
+            for (const candidate of signal.coachCandidates) {
+              if (!coachCandidatesRef.current.has(candidate.candidate)) {
+                coachCandidatesRef.current.add(candidate.candidate);
+                await peer.addIceCandidate(candidate);
+              }
             }
           }
+        } finally {
+          phoneSignalBusyRef.current = false;
         }
       };
 
@@ -118,7 +125,7 @@ export function PhoneCameraFeature() {
       <p>{status}</p>
 
       <div className="phone-camera-preview">
-        <video ref={videoRef} playsInline muted />
+        <video ref={videoRef} autoPlay playsInline muted />
         {!isStreaming && (
           <div className="phone-camera-preview__empty">
             <Camera size={34} aria-hidden="true" />

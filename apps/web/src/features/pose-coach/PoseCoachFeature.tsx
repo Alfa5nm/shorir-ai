@@ -870,7 +870,7 @@ export function PoseCoachFeature() {
 
       <div className="pose-coach__workspace">
         <div className={`pose-stage${cameraMode === "phone" ? " pose-stage--phone" : ""}`}>
-          <video ref={videoRef} className="pose-stage__video" playsInline muted />
+          <video ref={videoRef} className="pose-stage__video" autoPlay playsInline muted />
           <canvas ref={canvasRef} className="pose-stage__canvas" aria-hidden="true" />
           {displayedActivityRegion && (
             <div

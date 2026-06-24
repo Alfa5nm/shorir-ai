@@ -7,6 +7,7 @@ import type {
   PhoneCameraSessionInput,
   PhoneCameraSignalState
 } from "@shorir/contracts";
+import { randomUUID } from "node:crypto";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
 
 interface StoredPhoneCameraSession extends PhoneCameraSession {
@@ -24,7 +25,7 @@ function nowIso() {
 }
 
 function createId() {
-  return `phone_cam_${crypto.randomUUID()}`;
+  return `phone_cam_${randomUUID()}`;
 }
 
 function isExpired(session: PhoneCameraSession) {
