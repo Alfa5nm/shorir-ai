@@ -1,7 +1,7 @@
 import type { CoachReview, LanguagePreference, PhoneCameraSession, WorkoutSession } from "@shorir/contracts";
 import { Activity, ArrowLeft, BookOpen, Camera, CircleStop, Loader2, RefreshCw, Save, ScanLine, ShieldAlert, Smartphone, Target, Wifi } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useAppServices } from "../../app/providers";
@@ -26,6 +26,7 @@ import { localizedCoachFeedback } from "./coachingLanguage";
 
 type CameraMode = "local" | "phone" | null;
 type PoseSource = HTMLVideoElement;
+type CoachTab = "guide" | "setup" | "diagnostics" | "review";
 
 const poseConnections = [
   ["left_shoulder", "left_elbow"],
@@ -106,6 +107,44 @@ function drawPose(canvas: HTMLCanvasElement | null, source: PoseSource | null, f
     context.arc(landmark.x * canvas.width, landmark.y * canvas.height, 5, 0, Math.PI * 2);
     context.fill();
   }
+}
+
+function exerciseDescription(exercise: SupportedExercise) {
+  if (exercise === "squat") return "Standing lower-body coaching";
+  if (exercise === "lunge") return "Split-stance lower-body coaching";
+  return "Side-view floor coaching";
+}
+
+function RevealSection({ children, className = "" }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion || !("IntersectionObserver" in window)) {
+      setIsVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "0px 0px -8% 0px", threshold: 0.12 }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} className={`reveal-section${isVisible ? " is-visible" : ""}${className ? ` ${className}` : ""}`}>
+      {children}
+    </div>
+  );
 }
 
 export function PoseCoachFeature() {
@@ -599,122 +638,122 @@ export function PoseCoachFeature() {
     }
   }
 
+  const [activeTab, setActiveTab] = useState<CoachTab>("guide");
+
+  useEffect(() => {
+    if (phoneSession) setActiveTab("setup");
+  }, [phoneSession]);
+
+  const statusText = isTracking
+    ? "Tracking live"
+    : phoneSession
+      ? "Waiting for phone"
+      : error
+        ? "Needs attention"
+        : "Ready";
+
+  const tabs: Array<{ id: CoachTab; label: string; badge: string | undefined }> = [
+    { id: "guide", label: "Guide", badge: undefined },
+    { id: "setup", label: "Setup", badge: phoneSession ? "QR" : undefined },
+    { id: "diagnostics", label: "Diagnostics", badge: sessionDiagnostics ? String(sessionDiagnostics.qualityScore) : undefined },
+    { id: "review", label: "Review", badge: coachReview ? "New" : undefined }
+  ];
+
   return (
     <section className="pose-coach">
-      <div className="pose-coach__header">
-        <StatusPill tone={statusTone}>
-          {isTracking ? "Tracking live" : phoneSession ? "Waiting for phone" : error ? "Needs attention" : "Ready"}
-        </StatusPill>
-        <h1>{exerciseDefinitions[selectedExercise].heading}</h1>
-        <p>
-          Camera video is processed in this browser. Phone video travels over an encrypted direct WebRTC
-          connection; only the derived session summary and coach review are saved.
-        </p>
-      </div>
-
-      {activeSourceGuide && (
-        <section className="coach-guide-context" aria-labelledby="coach-guide-context-title">
-          <div className="coach-guide-context__heading">
-            <BookOpen size={21} aria-hidden="true" />
-            <div>
-              <span>Practice from exercise library</span>
-              <h2 id="coach-guide-context-title">{activeSourceGuide.nameEn}</h2>
-            </div>
-            <Link to={`/exercise-library?guide=${encodeURIComponent(activeSourceGuide.id)}`}>
-              <ArrowLeft size={17} aria-hidden="true" />
-              Back to guide
-            </Link>
+      <header className="pose-coach__header">
+        <div className="pose-coach__title">
+          <StatusPill tone={statusTone}>{statusText}</StatusPill>
+          <div>
+            <h1>{exerciseDefinitions[selectedExercise].heading}</h1>
+            <p>Browser-first pose coaching. Phone video uses encrypted direct WebRTC when selected.</p>
           </div>
-          <div className="coach-guide-context__cues">
-            <div>
-              <strong>Set up</strong>
-              <span>{activeSourceGuide.setupSteps[0]}</span>
-            </div>
-            <div>
-              <strong>Camera</strong>
-              <span>{activeSourceGuide.cameraGuidance[0] ?? "Use a clear side view with the full movement visible."}</span>
-            </div>
-          </div>
-        </section>
-      )}
-
-      <div className="exercise-selector" aria-label="Choose an exercise">
-        {(["squat", "push-up", "lunge"] as const).map((exercise) => (
-          <button
-            key={exercise}
-            type="button"
-            className={selectedExercise === exercise ? "is-active" : ""}
-            onClick={() => selectExercise(exercise)}
-            disabled={isBusy || isTracking || Boolean(phoneSession)}
-          >
-            <strong>{exerciseDefinitions[exercise].name}</strong>
-            <span>
-              {exercise === "squat"
-                ? "Standing lower-body coaching"
-                : exercise === "lunge"
-                  ? "Split-stance lower-body coaching"
-                  : "Side-view floor coaching"}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <div className="pose-coach__workspace">
-        <div
-          className={`pose-stage pose-stage--${cameraGeometry.orientation}${
-            cameraMode ? " pose-stage--active" : ""
-          }${cameraMode === "phone" ? " pose-stage--phone" : ""}`}
-          style={{
-            aspectRatio: `${cameraGeometry.width} / ${cameraGeometry.height}`,
-            maxWidth:
-              cameraGeometry.orientation === "portrait"
-                ? `min(100%, calc(78vh * ${cameraGeometry.aspectRatio}))`
-                : "100%"
-          }}
-          data-camera-width={cameraGeometry.width}
-          data-camera-height={cameraGeometry.height}
-        >
-          <video ref={videoRef} className="pose-stage__video" autoPlay playsInline muted />
-          <canvas ref={canvasRef} className="pose-stage__canvas" aria-hidden="true" />
-          {displayedActivityRegion && (
-            <div
-              className={`activity-region activity-region--${metrics.calibrationPhase}${
-                metrics.calibrationPhase === "complete" && !metrics.regionValid ? " activity-region--warning" : ""
-              }`}
-              style={boxStyle(displayedActivityRegion, cameraMode === "local")}
-            >
-              <span>
-                {metrics.calibrationPhase === "complete" ? "Activity area" : "Set up inside this area"}
-              </span>
-            </div>
-          )}
-          {isTracking && metrics.livePoseBox && (
-            <div
-              className={`live-pose-box${metrics.regionValid ? " live-pose-box--valid" : ""}`}
-              style={boxStyle(metrics.livePoseBox, cameraMode === "local")}
-              aria-hidden="true"
-            />
-          )}
-          {!isTracking && (
-            <div className="pose-stage__empty">
-              {phoneSession ? "Waiting for phone camera" : "Camera preview appears here"}
-            </div>
-          )}
         </div>
 
-        <aside className="pose-readout">
-          <AnimatedExerciseCoach
-            exercise={selectedExercise}
-            phase={metrics.phase}
-            confidence={metrics.confidence}
-            primaryAngle={metrics.primaryAngle}
-            isTracking={isTracking}
-            language={coachLanguage}
-          />
-          <div className="metric-tile">
-            <span>Reps</span>
-            <strong>{metrics.reps}</strong>
+        <div className="exercise-selector" aria-label="Choose an exercise">
+          {(["squat", "push-up", "lunge"] as const).map((exercise) => (
+            <button
+              key={exercise}
+              type="button"
+              className={selectedExercise === exercise ? "is-active" : ""}
+              onClick={() => selectExercise(exercise)}
+              disabled={isBusy || isTracking || Boolean(phoneSession)}
+            >
+              <strong>{exerciseDefinitions[exercise].name}</strong>
+              <span>{exerciseDescription(exercise)}</span>
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <div className="pose-coach__workspace">
+        <div className="pose-stage-card">
+          <div
+            className={`pose-stage pose-stage--${cameraGeometry.orientation}${
+              cameraMode ? " pose-stage--active" : ""
+            }${cameraMode === "phone" ? " pose-stage--phone" : ""}`}
+            style={{
+              aspectRatio: `${cameraGeometry.width} / ${cameraGeometry.height}`,
+              maxWidth:
+                cameraGeometry.orientation === "portrait"
+                  ? `min(100%, calc(78vh * ${cameraGeometry.aspectRatio}))`
+                  : "100%"
+            }}
+            data-camera-width={cameraGeometry.width}
+            data-camera-height={cameraGeometry.height}
+          >
+            <video ref={videoRef} className="pose-stage__video" autoPlay playsInline muted />
+            <canvas ref={canvasRef} className="pose-stage__canvas" aria-hidden="true" />
+            {displayedActivityRegion && (
+              <div
+                className={`activity-region activity-region--${metrics.calibrationPhase}${
+                  metrics.calibrationPhase === "complete" && !metrics.regionValid ? " activity-region--warning" : ""
+                }`}
+                style={boxStyle(displayedActivityRegion, cameraMode === "local")}
+              >
+                <span>{metrics.calibrationPhase === "complete" ? "Activity area" : "Set up inside this area"}</span>
+              </div>
+            )}
+            {isTracking && metrics.livePoseBox && (
+              <div
+                className={`live-pose-box${metrics.regionValid ? " live-pose-box--valid" : ""}`}
+                style={boxStyle(metrics.livePoseBox, cameraMode === "local")}
+                aria-hidden="true"
+              />
+            )}
+            {!isTracking && (
+              <div className="pose-stage__empty">
+                {phoneSession ? "Waiting for phone camera" : "Camera preview appears here"}
+              </div>
+            )}
           </div>
+
+          <div className="pose-live-cue">
+            <ShieldAlert size={18} aria-hidden="true" />
+            <p>{localizedCoachFeedback(metrics.feedbackCode, metrics.feedback, coachLanguage)}</p>
+          </div>
+        </div>
+
+        <aside className="pose-readout" aria-label="Live coach controls">
+          <div className="pose-readout__summary">
+            <div className="metric-tile metric-tile--primary">
+              <span>Reps</span>
+              <strong>{metrics.reps}</strong>
+            </div>
+            <div className="metric-tile">
+              <span>Confidence</span>
+              <strong>{Math.round(metrics.confidence * 100)}%</strong>
+            </div>
+            <div className="metric-tile">
+              <span>Phase</span>
+              <strong>{metrics.phase.replace("_", " ")}</strong>
+            </div>
+            <div className="metric-tile">
+              <span>{metrics.primaryAngleLabel}</span>
+              <strong>{metrics.primaryAngle === null ? "--" : `${metrics.primaryAngle} deg`}</strong>
+            </div>
+          </div>
+
           {metrics.repCounts && (
             <div className="lunge-balance" aria-label="Lunge side balance">
               <div>
@@ -732,47 +771,6 @@ export function PoseCoachFeature() {
               </small>
             </div>
           )}
-          <div className="metric-tile">
-            <span>{metrics.primaryAngleLabel}</span>
-            <strong>{metrics.primaryAngle === null ? "--" : `${metrics.primaryAngle} deg`}</strong>
-          </div>
-          <div className="metric-tile">
-            <span>Confidence</span>
-            <strong>{Math.round(metrics.confidence * 100)}%</strong>
-          </div>
-          <div className="metric-tile">
-            <span>Phase</span>
-            <strong>{metrics.phase.replace("_", " ")}</strong>
-          </div>
-          <div className="calibration-readout">
-            <div>
-              <ScanLine size={19} aria-hidden="true" />
-              <span>Calibration</span>
-              <strong>{metrics.calibrationPhase}</strong>
-            </div>
-            <div>
-              <span>Camera depth</span>
-              <strong>{metrics.distanceStatus}</strong>
-            </div>
-            <div>
-              <span>Counting</span>
-              <strong>{metrics.repGateStatus.replaceAll("_", " ")}</strong>
-            </div>
-            {metrics.qualityReasons.length > 0 && (
-              <small>{metrics.qualityReasons.map((reason) => reason.replaceAll("_", " ")).join(" / ")}</small>
-            )}
-            {metrics.calibrationProfile && (
-              <small>
-                Top {metrics.calibrationProfile.topAngle} deg / target depth {metrics.calibrationProfile.depthAngle} deg
-                {metrics.calibrationProfile.referenceDepth === null ? " / scale-only depth" : " / relative depth locked"}
-              </small>
-            )}
-          </div>
-
-          <div className="coach-feedback">
-            <ShieldAlert size={20} aria-hidden="true" />
-            <p>{localizedCoachFeedback(metrics.feedbackCode, metrics.feedback, coachLanguage)}</p>
-          </div>
 
           <div className="pose-actions">
             <button type="button" onClick={startTracking} disabled={isBusy || isTracking}>
@@ -804,30 +802,6 @@ export function PoseCoachFeature() {
           </div>
 
           {error && <p className="inline-error">{error}</p>}
-          {phoneSession && (
-            <div className="phone-connect-panel">
-              <div className="phone-connect-panel__qr">
-                <QRCodeSVG value={phoneCameraUrl} size={176} level="M" />
-              </div>
-              <div className="phone-connect-panel__details">
-                <span className="phone-connect-panel__status">
-                  <Wifi size={17} aria-hidden="true" />
-                  {phoneConnected ? "Phone connected" : "Scan with your phone"}
-                </span>
-                <label htmlFor="phone-camera-origin">Secure phone link</label>
-                <input
-                  id="phone-camera-origin"
-                  type="url"
-                  value={phoneBaseUrl}
-                  readOnly
-                  spellCheck="false"
-                />
-                {["localhost", "127.0.0.1"].includes(window.location.hostname) && (
-                  <small>The HTTPS connection and QR code are generated automatically.</small>
-                )}
-              </div>
-            </div>
-          )}
           {savedSession && (
             <div className="session-summary">
               <Save size={18} aria-hidden="true" />
@@ -839,82 +813,222 @@ export function PoseCoachFeature() {
         </aside>
       </div>
 
-      {coachReview && (
-        <div className="review-panel">
-          <StatusPill tone="success">Coach review</StatusPill>
-          <h2>{coachReview.summaryEn}</h2>
-          <p>{coachReview.summaryBn}</p>
-          <div className="grid">
-            <div className="card">
-              <h3>Next action</h3>
-              <p>{coachReview.nextAction}</p>
-            </div>
-            <div className="card">
-              <h3>Form focus</h3>
-              <p>{coachReview.formFocus.join(", ")}</p>
-            </div>
-            <div className="card">
-              <h3>Safety</h3>
-              <p>{coachReview.safetyNote}</p>
-            </div>
-          </div>
+      <RevealSection className="pose-details">
+        <div className="pose-details__tabs" role="tablist" aria-label="Coach details">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              className={activeTab === tab.id ? "is-active" : ""}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+              {tab.badge && <span>{tab.badge}</span>}
+            </button>
+          ))}
         </div>
-      )}
-      {sessionDiagnostics && (
-        <section className="diagnostics-panel" aria-labelledby="session-diagnostics-title">
-          <div className="diagnostics-panel__heading">
-            <div>
-              <StatusPill tone={sessionDiagnostics.qualityScore >= 75 ? "success" : "warning"}>
-                Session quality {sessionDiagnostics.qualityScore}%
-              </StatusPill>
-              <h2 id="session-diagnostics-title">What the detector accepted and rejected</h2>
+
+        <div className="pose-details__panel" role="tabpanel">
+          {activeTab === "guide" && (
+            <div className="pose-guide-grid">
+              <AnimatedExerciseCoach
+                exercise={selectedExercise}
+                phase={metrics.phase}
+                confidence={metrics.confidence}
+                primaryAngle={metrics.primaryAngle}
+                isTracking={isTracking}
+                language={coachLanguage}
+              />
+              <section className="coach-guide-context" aria-labelledby="coach-guide-context-title">
+                <div className="coach-guide-context__heading">
+                  <BookOpen size={21} aria-hidden="true" />
+                  <div>
+                    <span>{activeSourceGuide ? "Practice from exercise library" : "Coach focus"}</span>
+                    <h2 id="coach-guide-context-title">
+                      {activeSourceGuide?.nameEn ?? exerciseDefinitions[selectedExercise].name}
+                    </h2>
+                  </div>
+                  {activeSourceGuide && (
+                    <Link to={`/exercise-library?guide=${encodeURIComponent(activeSourceGuide.id)}`}>
+                      <ArrowLeft size={17} aria-hidden="true" />
+                      Back to guide
+                    </Link>
+                  )}
+                </div>
+                <div className="coach-guide-context__cues">
+                  <div>
+                    <strong>Set up</strong>
+                    <span>
+                      {activeSourceGuide?.setupSteps[0] ??
+                        (selectedExercise === "push-up"
+                          ? "Use a side-view top plank with shoulders, hips, and ankles visible."
+                          : "Use a clear side view with your full movement visible.")}
+                    </span>
+                  </div>
+                  <div>
+                    <strong>Camera</strong>
+                    <span>
+                      {activeSourceGuide?.cameraGuidance[0] ??
+                        "Keep the camera steady and stay inside the activity area while counting."}
+                    </span>
+                  </div>
+                </div>
+              </section>
             </div>
-            <Target size={28} aria-hidden="true" />
-          </div>
-          <div className="diagnostics-panel__metrics">
-            <article>
-              <Activity size={19} aria-hidden="true" />
-              <span>Counted reps</span>
-              <strong>{sessionDiagnostics.countedReps}</strong>
-            </article>
-            <article>
-              <ShieldAlert size={19} aria-hidden="true" />
-              <span>Rejected attempts</span>
-              <strong>{sessionDiagnostics.rejectedAttempts}</strong>
-            </article>
-            <article>
-              <ScanLine size={19} aria-hidden="true" />
-              <span>Tracking accepted</span>
-              <strong>
-                {sessionDiagnostics.totalFrames > 0
-                  ? Math.round((sessionDiagnostics.readyFrames / sessionDiagnostics.totalFrames) * 100)
-                  : 0}%
-              </strong>
-            </article>
-          </div>
-          <div className="diagnostics-panel__details">
-            <div>
-              <h3>Most common pauses</h3>
-              {sessionDiagnostics.topIssues.length > 0 ? (
-                <ol>
-                  {sessionDiagnostics.topIssues.map((issue) => (
-                    <li key={issue.reason}>
-                      <span>{issue.reason}</span>
-                      <strong>{issue.count}</strong>
-                    </li>
-                  ))}
-                </ol>
+          )}
+
+          {activeTab === "setup" && (
+            <div className="pose-setup-grid">
+              <div className="calibration-readout">
+                <div>
+                  <ScanLine size={19} aria-hidden="true" />
+                  <span>Calibration</span>
+                  <strong>{metrics.calibrationPhase}</strong>
+                </div>
+                <div>
+                  <span>Camera depth</span>
+                  <strong>{metrics.distanceStatus}</strong>
+                </div>
+                <div>
+                  <span>Counting</span>
+                  <strong>{metrics.repGateStatus.replaceAll("_", " ")}</strong>
+                </div>
+                {metrics.qualityReasons.length > 0 && (
+                  <small>{metrics.qualityReasons.map((reason) => reason.replaceAll("_", " ")).join(" / ")}</small>
+                )}
+                {metrics.calibrationProfile && (
+                  <small>
+                    Top {metrics.calibrationProfile.topAngle} deg / target depth {metrics.calibrationProfile.depthAngle} deg
+                    {metrics.calibrationProfile.referenceDepth === null ? " / scale-only depth" : " / relative depth locked"}
+                  </small>
+                )}
+              </div>
+              {phoneSession ? (
+                <div className="phone-connect-panel">
+                  <div className="phone-connect-panel__qr">
+                    <QRCodeSVG value={phoneCameraUrl} size={176} level="M" />
+                  </div>
+                  <div className="phone-connect-panel__details">
+                    <span className="phone-connect-panel__status">
+                      <Wifi size={17} aria-hidden="true" />
+                      {phoneConnected ? "Phone connected" : "Scan with your phone"}
+                    </span>
+                    <label htmlFor="phone-camera-origin">Secure phone link</label>
+                    <input id="phone-camera-origin" type="url" value={phoneBaseUrl} readOnly spellCheck="false" />
+                    {["localhost", "127.0.0.1"].includes(window.location.hostname) && (
+                      <small>The HTTPS connection and QR code are generated automatically.</small>
+                    )}
+                  </div>
+                </div>
               ) : (
-                <p>No recurring tracking problems were detected.</p>
+                <div className="phone-connect-panel phone-connect-panel--idle">
+                  <Smartphone size={22} aria-hidden="true" />
+                  <div>
+                    <strong>Phone camera is optional</strong>
+                    <p>Use it when laptop framing is too low or too close. The QR code appears here after you start phone mode.</p>
+                  </div>
+                </div>
               )}
             </div>
-            <div>
-              <h3>Next setup adjustment</h3>
-              <p>{sessionDiagnostics.nextAction}</p>
-            </div>
-          </div>
-        </section>
-      )}
+          )}
+
+          {activeTab === "diagnostics" && (
+            sessionDiagnostics ? (
+              <section className="diagnostics-panel" aria-labelledby="session-diagnostics-title">
+                <div className="diagnostics-panel__heading">
+                  <div>
+                    <StatusPill tone={sessionDiagnostics.qualityScore >= 75 ? "success" : "warning"}>
+                      Session quality {sessionDiagnostics.qualityScore}%
+                    </StatusPill>
+                    <h2 id="session-diagnostics-title">What the detector accepted and rejected</h2>
+                  </div>
+                  <Target size={28} aria-hidden="true" />
+                </div>
+                <div className="diagnostics-panel__metrics">
+                  <article>
+                    <Activity size={19} aria-hidden="true" />
+                    <span>Counted reps</span>
+                    <strong>{sessionDiagnostics.countedReps}</strong>
+                  </article>
+                  <article>
+                    <ShieldAlert size={19} aria-hidden="true" />
+                    <span>Rejected attempts</span>
+                    <strong>{sessionDiagnostics.rejectedAttempts}</strong>
+                  </article>
+                  <article>
+                    <ScanLine size={19} aria-hidden="true" />
+                    <span>Tracking accepted</span>
+                    <strong>
+                      {sessionDiagnostics.totalFrames > 0
+                        ? Math.round((sessionDiagnostics.readyFrames / sessionDiagnostics.totalFrames) * 100)
+                        : 0}%
+                    </strong>
+                  </article>
+                </div>
+                <div className="diagnostics-panel__details">
+                  <div>
+                    <h3>Most common pauses</h3>
+                    {sessionDiagnostics.topIssues.length > 0 ? (
+                      <ol>
+                        {sessionDiagnostics.topIssues.map((issue) => (
+                          <li key={issue.reason}>
+                            <span>{issue.reason}</span>
+                            <strong>{issue.count}</strong>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <p>No recurring tracking problems were detected.</p>
+                    )}
+                  </div>
+                  <div>
+                    <h3>Next setup adjustment</h3>
+                    <p>{sessionDiagnostics.nextAction}</p>
+                  </div>
+                </div>
+              </section>
+            ) : (
+              <div className="empty-state empty-state--compact">
+                <Target size={30} aria-hidden="true" />
+                <h2>Diagnostics appear after a saved session</h2>
+                <p>End a tracked set to see what the detector accepted, paused, and rejected.</p>
+              </div>
+            )
+          )}
+
+          {activeTab === "review" && (
+            coachReview ? (
+              <div className="review-panel">
+                <StatusPill tone="success">Coach review</StatusPill>
+                <h2>{coachReview.summaryEn}</h2>
+                <p>{coachReview.summaryBn}</p>
+                <div className="grid">
+                  <div className="card">
+                    <h3>Next action</h3>
+                    <p>{coachReview.nextAction}</p>
+                  </div>
+                  <div className="card">
+                    <h3>Form focus</h3>
+                    <p>{coachReview.formFocus.join(", ")}</p>
+                  </div>
+                  <div className="card">
+                    <h3>Safety</h3>
+                    <p>{coachReview.safetyNote}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="empty-state empty-state--compact">
+                <Save size={30} aria-hidden="true" />
+                <h2>Review appears after ending a set</h2>
+                <p>Start tracking, complete a controlled set, then end and review to save coaching notes.</p>
+              </div>
+            )
+          )}
+        </div>
+      </RevealSection>
     </section>
   );
 }

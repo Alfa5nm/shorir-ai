@@ -1,8 +1,10 @@
 import type { ApiClient } from "../ports/apiClient";
 
-const profileIdStorageKey = "shorir.profileId";
+const legacyProfileIdStorageKey = "shorir.profileId";
+const profileIdStorageKey = "shorir.profileId.v2";
 
 export function getStoredProfileId() {
+  window.localStorage.removeItem(legacyProfileIdStorageKey);
   return window.localStorage.getItem(profileIdStorageKey);
 }
 

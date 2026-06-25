@@ -4,8 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppServices } from "../app/providers";
 import { ensureProfileId } from "../app/profileSession";
+import { Badge } from "../components/ui/badge";
+import { ButtonLink } from "../components/ui/button";
+import { Card, CardContent, CardHeader } from "../components/ui/card";
 import { StatusPill } from "../components/ui/StatusPill";
 import { createDailyWorkoutPlan } from "../features/daily-plan/dailyPlan";
+import { demoSequence } from "../features/demo/demoSequence";
 
 export function HomeRoute() {
   const { apiClient } = useAppServices();
@@ -48,9 +52,35 @@ export function HomeRoute() {
           <StatusPill tone={health === "connected" ? "success" : "warning"}>API {health}</StatusPill>
           <h1>{profile?.displayName ? `${profile.displayName}'s plan` : "Today's workout plan"}</h1>
           <p>{plan?.rationale ?? "Complete onboarding to generate a schedule-aware workout."}</p>
+          <div className="daily-dashboard__hero-actions">
+            <ButtonLink to="/demo">View demo flow</ButtonLink>
+            <ButtonLink to="/coach?exercise=squat" variant="secondary">Open pose coach</ButtonLink>
+          </div>
         </div>
         <img src="/images/logo_nobg.png" alt="SHORIR AI" />
       </header>
+
+      <Card className="demo-strip">
+        <CardHeader>
+          <div>
+            <Badge variant="secondary">Suggested walkthrough</Badge>
+            <h2>Show the product in eight clean steps</h2>
+          </div>
+          <ButtonLink to="/demo" variant="ghost" size="sm">Open full demo</ButtonLink>
+        </CardHeader>
+        <CardContent>
+          {demoSequence.slice(0, 5).map((step, index) => {
+            const Icon = step.icon;
+            return (
+              <Link className="demo-strip__step" to={step.route} key={step.id}>
+                <span>{index + 1}</span>
+                <Icon size={17} aria-hidden={true} />
+                <strong>{step.title}</strong>
+              </Link>
+            );
+          })}
+        </CardContent>
+      </Card>
 
       {!profile || !plan ? (
         <div className="empty-state">

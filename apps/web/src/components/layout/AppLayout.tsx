@@ -5,15 +5,14 @@ import {
   Camera,
   ClipboardList,
   Dumbbell,
-  FileText,
   Home,
+  MonitorPlay,
   Moon,
-  Presentation,
   Settings2,
   Sun
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { BrandStrip } from "../branding/BrandStrip";
 
 const navItems = [
@@ -23,12 +22,13 @@ const navItems = [
   { href: "/diet-chart", label: "Diet Chart", icon: Apple },
   { href: "/calorie-check", label: "Calorie Check", icon: ClipboardList },
   { href: "/progress", label: "Progress", icon: BarChart3 },
-  { href: "/onboarding", label: "Profile", icon: Settings2 },
-  { href: "/presentation", label: "Presentation", icon: Presentation },
-  { href: "/report", label: "Report", icon: FileText }
+  { href: "/demo", label: "Demo", icon: MonitorPlay },
+  { href: "/onboarding", label: "Profile", icon: Settings2 }
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const isCoachRoute = location.pathname === "/coach";
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     const saved = window.localStorage.getItem("shorir-theme");
     if (saved === "light" || saved === "dark") return saved;
@@ -42,7 +42,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }, [theme]);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${isCoachRoute ? " app-shell--coach" : ""}`}>
       <header className="site-header">
         <BrandStrip />
         <div className="navigation-row">

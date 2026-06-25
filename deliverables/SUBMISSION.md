@@ -2,9 +2,15 @@
 
 ## Live Website
 
+https://shorir-ai-production.up.railway.app
+
 Railway deployment configuration is included in `railway.json`.
 
-Deployment status: awaiting Railway account authentication on the release machine.
+## Demo Flow
+
+- Live route: `/demo`
+- Demo sequence: `SHORIR_AI_Demo_Sequence.md`
+- Demo video: `SHORIR_AI_Demo_Walkthrough.mp4`
 
 ## Project Presentation
 
@@ -20,7 +26,7 @@ Deployment status: awaiting Railway account authentication on the release machin
 
 ## Verification
 
-- Type checking: passed
-- Linting: passed
-- Unit tests: 37 passed
-- Production build: passed
+- Type checking: passed (`pnpm -r typecheck`)
+- Linting: passed (`pnpm -r lint`)
+- Unit tests: passed (`pnpm -r test`, 37 tests)
+- Production build: passed (`pnpm -r build`)
