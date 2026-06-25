@@ -660,6 +660,13 @@ export function PoseCoachFeature() {
               <span>Camera depth</span>
               <strong>{metrics.distanceStatus}</strong>
             </div>
+            <div>
+              <span>Counting</span>
+              <strong>{metrics.repGateStatus.replaceAll("_", " ")}</strong>
+            </div>
+            {metrics.qualityReasons.length > 0 && (
+              <small>{metrics.qualityReasons.map((reason) => reason.replaceAll("_", " ")).join(" / ")}</small>
+            )}
             {metrics.calibrationProfile && (
               <small>
                 Top {metrics.calibrationProfile.topAngle} deg / target depth {metrics.calibrationProfile.depthAngle} deg

@@ -4,6 +4,14 @@ import type { PoseFrame, PoseLandmark } from "../../ports/poseEstimator";
 export type SupportedExercise = Extract<ExerciseType, "squat" | "push-up">;
 export type CalibrationPhase = "idle" | "standing" | "depth" | "complete";
 export type DistanceStatus = "unknown" | "close" | "good" | "far";
+export type QualityStatus = "unknown" | "calibrating" | "ready" | "blocked";
+export type RepGateStatus =
+  | "calibration_required"
+  | "quality_blocked"
+  | "waiting_for_stable_top"
+  | "ready"
+  | "rep_in_progress"
+  | "cooldown";
 export type ExercisePhase =
   | "idle"
   | "standing_ready"
@@ -42,6 +50,11 @@ export type FeedbackCode =
   | "hip_sag"
   | "hip_pike"
   | "wrist_alignment"
+  | "unstable_pose"
+  | "not_side_on"
+  | "waiting_for_stable_top"
+  | "incomplete_depth"
+  | "cooldown"
   | "descending"
   | "bottom"
   | "ascending"
@@ -62,6 +75,9 @@ export interface AnalyzerSnapshot {
   livePoseBox: NormalizedBox | null;
   regionValid: boolean;
   distanceStatus: DistanceStatus;
+  qualityStatus: QualityStatus;
+  qualityReasons: string[];
+  repGateStatus: RepGateStatus;
   formValid: boolean;
   calibrationCompleted: boolean;
 }
@@ -103,6 +119,7 @@ export const exerciseDefinitions: Record<SupportedExercise, ExerciseDefinition> 
 };
 
 interface SideLandmarks {
+  sideName: "left" | "right";
   shoulder: PoseLandmark | null;
   elbow: PoseLandmark | null;
   wrist: PoseLandmark | null;
@@ -118,6 +135,28 @@ interface CalibrationSample {
   bodyScale: number;
   depth: number | null;
 }
+
+interface Measurement {
+  timestamp: number;
+  angle: number;
+  scale: number;
+  depth: number | null;
+  box: NormalizedBox;
+  sideName: "left" | "right";
+  confidence: number;
+}
+
+interface QualityResult {
+  status: QualityStatus;
+  reasons: string[];
+}
+
+const qualityConfidenceThreshold = 0.68;
+const stableTopMs = 250;
+const minimumRepMs = 900;
+const bottomConfirmMs = 120;
+const cooldownMs = 600;
+const smoothingWindowSize = 5;
 
 function landmarkByName(frame: PoseFrame, name: string) {
   return frame.landmarks.find((landmark) => landmark.name === name) ?? null;
@@ -152,6 +191,7 @@ function sideFor(frame: PoseFrame, side: "left" | "right"): SideLandmarks {
     ankle: landmarkByName(frame, `${side}_ankle`)
   };
   return {
+    sideName: side,
     ...landmarks,
     confidence: averageConfidence(Object.values(landmarks))
   };
@@ -306,6 +346,92 @@ function depthStatusFrom(profile: CalibrationProfile, currentScale: number, curr
   return "good";
 }
 
+function centerOf(box: NormalizedBox) {
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+}
+
+function averageMeasurement(measurements: Measurement[]): Measurement | null {
+  if (measurements.length === 0) return null;
+  const totals = measurements.reduce(
+    (result, measurement) => ({
+      timestamp: Math.max(result.timestamp, measurement.timestamp),
+      angle: result.angle + measurement.angle,
+      scale: result.scale + measurement.scale,
+      depth: result.depth + (measurement.depth ?? 0),
+      depthCount: result.depthCount + (measurement.depth === null ? 0 : 1),
+      confidence: result.confidence + measurement.confidence,
+      boxX: result.boxX + measurement.box.x,
+      boxY: result.boxY + measurement.box.y,
+      boxWidth: result.boxWidth + measurement.box.width,
+      boxHeight: result.boxHeight + measurement.box.height
+    }),
+    {
+      timestamp: 0,
+      angle: 0,
+      scale: 0,
+      depth: 0,
+      depthCount: 0,
+      confidence: 0,
+      boxX: 0,
+      boxY: 0,
+      boxWidth: 0,
+      boxHeight: 0
+    }
+  );
+  const count = measurements.length;
+  return {
+    timestamp: totals.timestamp,
+    angle: totals.angle / count,
+    scale: totals.scale / count,
+    depth: totals.depthCount > 0 ? totals.depth / totals.depthCount : null,
+    confidence: totals.confidence / count,
+    sideName: measurements[measurements.length - 1]?.sideName ?? "left",
+    box: {
+      x: totals.boxX / count,
+      y: totals.boxY / count,
+      width: totals.boxWidth / count,
+      height: totals.boxHeight / count
+    }
+  };
+}
+
+function measurementJitter(measurements: Measurement[]) {
+  if (measurements.length < 2) return { center: 0, scaleRatio: 1, angleDelta: 0 };
+  const latest = measurements[measurements.length - 1]!;
+  const previous = measurements[measurements.length - 2]!;
+  const latestCenter = centerOf(latest.box);
+  const previousCenter = centerOf(previous.box);
+  return {
+    center: Math.hypot(latestCenter.x - previousCenter.x, latestCenter.y - previousCenter.y),
+    scaleRatio: previous.scale > 0 ? latest.scale / previous.scale : 1,
+    angleDelta: Math.abs(latest.angle - previous.angle)
+  };
+}
+
+function sideViewReason(exercise: SupportedExercise, side: SideLandmarks, box: NormalizedBox, scale: number) {
+  if (exercise === "squat") {
+    if (box.height < 0.34) return "full body not visible";
+    return null;
+  }
+
+  if (box.width < 0.34) return "side profile too small";
+  if (!side.shoulder || !side.hip || !side.ankle) return "required side landmarks missing";
+  const shoulderToAnkleX = Math.abs(side.ankle.x - side.shoulder.x);
+  if (shoulderToAnkleX / scale < 0.7) return "not side-on enough";
+  return null;
+}
+
+function qualityFeedback(reasons: string[]) {
+  const reason = reasons[0] ?? "unstable pose";
+  if (reason.includes("confidence")) return "Counting paused: keep the required joints clearly visible.";
+  if (reason.includes("outside")) return "Counting paused: move your full body back inside the activity box.";
+  if (reason.includes("distance close")) return "Counting paused: step slightly away from the camera.";
+  if (reason.includes("distance far")) return "Counting paused: step slightly toward the camera.";
+  if (reason.includes("side") || reason.includes("profile")) return "Counting paused: turn side-on so the movement is clear.";
+  if (reason.includes("abrupt")) return "Counting paused: settle your position before continuing.";
+  return "Counting paused: hold a stable setup before starting the next rep.";
+}
+
 function plankDeviation(side: SideLandmarks) {
   if (!side.shoulder || !side.hip || !side.ankle) return null;
   const totalX = side.ankle.x - side.shoulder.x;
@@ -324,6 +450,14 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
   private topSamples: CalibrationSample[] = [];
   private calibrationBoxes: NormalizedBox[] = [];
   private minimumDepthAngle: number | null = null;
+  private measurements: Measurement[] = [];
+  private qualityStreak = 0;
+  private activeSideName: "left" | "right" | null = null;
+  private topStableSince: number | null = null;
+  private repStartedAt: number | null = null;
+  private bottomSince: number | null = null;
+  private lastRepAt: number | null = null;
+  private repGateStatus: RepGateStatus = "calibration_required";
   private current: AnalyzerSnapshot;
 
   constructor(exercise: SupportedExercise) {
@@ -349,6 +483,9 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
       livePoseBox: null,
       regionValid: false,
       distanceStatus: "unknown",
+      qualityStatus: "unknown",
+      qualityReasons: [],
+      repGateStatus: this.repGateStatus,
       formValid: false,
       calibrationCompleted: false,
       ...changes
@@ -367,6 +504,14 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
     this.topSamples = [];
     this.calibrationBoxes = [];
     this.minimumDepthAngle = null;
+    this.measurements = [];
+    this.qualityStreak = 0;
+    this.activeSideName = null;
+    this.topStableSince = null;
+    this.repStartedAt = null;
+    this.bottomSince = null;
+    this.lastRepAt = null;
+    this.repGateStatus = "calibration_required";
     this.current = this.makeSnapshot({
       feedbackCode: "ready",
       feedback: exerciseDefinitions[this.exercise].initialFeedback
@@ -382,6 +527,14 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
     this.topSamples = [];
     this.calibrationBoxes = [];
     this.minimumDepthAngle = null;
+    this.measurements = [];
+    this.qualityStreak = 0;
+    this.activeSideName = null;
+    this.topStableSince = null;
+    this.repStartedAt = null;
+    this.bottomSince = null;
+    this.lastRepAt = null;
+    this.repGateStatus = "calibration_required";
     this.current = this.makeSnapshot({
       feedbackCode: "calibration_setup",
       feedback:
@@ -390,6 +543,50 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
           : "Calibration: hold a straight top plank side-on with your full body visible."
     });
     return this.current;
+  }
+
+  private resetRepAttempt(nextPhase: ExercisePhase = this.exercise === "squat" ? "standing_ready" : "top_ready") {
+    this.phase = nextPhase;
+    this.repStartedAt = null;
+    this.bottomSince = null;
+    this.topStableSince = null;
+  }
+
+  private updateQuality(
+    measurement: Measurement,
+    side: SideLandmarks,
+    profile: CalibrationProfile | null,
+    regionValid: boolean,
+    distanceStatus: DistanceStatus
+  ): QualityResult {
+    const reasons: string[] = [];
+    if (measurement.confidence < qualityConfidenceThreshold) reasons.push("low landmark confidence");
+    if (profile && !regionValid) reasons.push("outside calibrated box");
+    if (profile && distanceStatus !== "good") reasons.push(`camera distance ${distanceStatus}`);
+
+    if (this.activeSideName && measurement.sideName !== this.activeSideName) {
+      reasons.push("body side switched");
+    }
+
+    const sideReason = sideViewReason(this.exercise, side, measurement.box, measurement.scale);
+    if (sideReason) reasons.push(sideReason);
+
+    const jitter = measurementJitter(this.measurements);
+    if (jitter.center > 0.12 || jitter.scaleRatio > 1.22 || jitter.scaleRatio < 0.82 || jitter.angleDelta > 58) {
+      reasons.push("pose moved too abruptly");
+    }
+
+    if (reasons.length > 0) {
+      this.qualityStreak = 0;
+      return { status: "blocked", reasons };
+    }
+
+    this.qualityStreak += 1;
+    if (!this.activeSideName) this.activeSideName = measurement.sideName;
+    if (this.qualityStreak < 3) {
+      return { status: "blocked", reasons: ["waiting for stable pose"] };
+    }
+    return { status: "ready", reasons: [] };
   }
 
   process(frame: PoseFrame) {
@@ -410,8 +607,17 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
     };
 
     if (confidence < 0.55 || angle === null) {
+      if (this.calibrationPhase === "complete") {
+        this.resetRepAttempt();
+        this.qualityStreak = 0;
+        this.repGateStatus = "quality_blocked";
+      }
       this.current = this.makeSnapshot({
         ...base,
+        phase: this.phase,
+        qualityStatus: this.calibrationPhase === "complete" ? "blocked" : "unknown",
+        qualityReasons: this.calibrationPhase === "complete" ? ["low landmark confidence"] : [],
+        repGateStatus: this.repGateStatus,
         feedbackCode: "low_confidence",
         feedback:
           this.exercise === "squat"
@@ -521,26 +727,51 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
       return this.current;
     }
 
-    const regionValid = boxInsideRegion(box, profile.region);
-    const distanceStatus = depthStatusFrom(profile, scale, depth);
-    const assessed = { ...base, regionValid, distanceStatus };
+    const measurement: Measurement = {
+      timestamp: frame.capturedAt || Date.now(),
+      angle,
+      scale,
+      depth,
+      box,
+      sideName: side.sideName,
+      confidence
+    };
+    this.measurements.push(measurement);
+    if (this.measurements.length > smoothingWindowSize) this.measurements.shift();
+    const smoothed = averageMeasurement(this.measurements) ?? measurement;
+    const effectiveAngle = Math.round(smoothed.angle);
+    const effectiveScale = smoothed.scale;
+    const effectiveDepth = smoothed.depth;
+    const effectiveBox = smoothed.box;
+    const regionValid = boxInsideRegion(effectiveBox, profile.region);
+    const distanceStatus = depthStatusFrom(profile, effectiveScale, effectiveDepth);
+    const quality = this.updateQuality(smoothed, side, profile, regionValid, distanceStatus);
+    const assessed = {
+      ...base,
+      confidence: smoothed.confidence,
+      primaryAngle: effectiveAngle,
+      livePoseBox: effectiveBox,
+      regionValid,
+      distanceStatus,
+      qualityStatus: quality.status,
+      qualityReasons: quality.reasons,
+      repGateStatus: this.repGateStatus
+    };
 
-    if (!regionValid) {
+    if (quality.status !== "ready") {
+      this.resetRepAttempt();
+      this.repGateStatus = "quality_blocked";
       this.current = this.makeSnapshot({
         ...assessed,
-        feedbackCode: "outside_region",
-        feedback: "Move your full body back inside the calibrated activity box."
-      });
-      return this.current;
-    }
-    if (distanceStatus !== "good") {
-      this.current = this.makeSnapshot({
-        ...assessed,
-        feedbackCode: distanceStatus === "close" ? "too_close" : "too_far",
-        feedback:
-          distanceStatus === "close"
-            ? "You are closer than calibration. Step slightly away from the camera."
-            : "You are farther than calibration. Step slightly toward the camera."
+        phase: this.phase,
+        repGateStatus: this.repGateStatus,
+        feedbackCode:
+          quality.reasons.some((reason) => reason.includes("outside")) ? "outside_region"
+          : quality.reasons.some((reason) => reason.includes("distance close")) ? "too_close"
+          : quality.reasons.some((reason) => reason.includes("distance far")) ? "too_far"
+          : quality.reasons.some((reason) => reason.includes("side") || reason.includes("profile")) ? "not_side_on"
+          : "unstable_pose",
+        feedback: qualityFeedback(quality.reasons)
       });
       return this.current;
     }
@@ -548,24 +779,33 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
     if (this.exercise === "push-up") {
       const deviation = plankDeviation(side);
       if (deviation !== null && deviation > 0.06) {
+        this.resetRepAttempt();
         this.current = this.makeSnapshot({
           ...assessed,
+          phase: this.phase,
+          repGateStatus: "quality_blocked",
           feedbackCode: "hip_sag",
           feedback: "Lift your hips slightly to keep shoulders, hips, and ankles in one line."
         });
         return this.current;
       }
       if (deviation !== null && deviation < -0.06) {
+        this.resetRepAttempt();
         this.current = this.makeSnapshot({
           ...assessed,
+          phase: this.phase,
+          repGateStatus: "quality_blocked",
           feedbackCode: "hip_pike",
           feedback: "Lower your hips slightly to return to a straight plank."
         });
         return this.current;
       }
-      if (side.shoulder && side.wrist && Math.abs(side.shoulder.x - side.wrist.x) / scale > 0.18) {
+      if (side.shoulder && side.wrist && Math.abs(side.shoulder.x - side.wrist.x) / effectiveScale > 0.18) {
+        this.resetRepAttempt();
         this.current = this.makeSnapshot({
           ...assessed,
+          phase: this.phase,
+          repGateStatus: "quality_blocked",
           feedbackCode: "wrist_alignment",
           feedback: "Stack your shoulder more directly over your wrist before continuing."
         });
@@ -577,39 +817,92 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
     let feedback = this.exercise === "squat" ? "Stand tall, then descend slowly." : "Hold the top plank, then lower slowly.";
     const topThreshold = profile.topAngle - 9;
     const descentThreshold = profile.topAngle - Math.max(18, (profile.topAngle - profile.depthAngle) * 0.3);
-    const bottomThreshold = profile.depthAngle + 8;
+    const bottomThreshold = profile.depthAngle + Math.max(14, (profile.topAngle - profile.depthAngle) * 0.12);
     const ascentThreshold = profile.depthAngle + 18;
+    const now = smoothed.timestamp;
+    const isTop = effectiveAngle > topThreshold;
+    const isDescending = effectiveAngle < descentThreshold;
+    const isBottom = effectiveAngle < bottomThreshold;
+    const cooldownActive = this.lastRepAt !== null && now - this.lastRepAt < cooldownMs;
 
-    if (this.phase === "idle" && angle > topThreshold) {
+    if (cooldownActive) {
+      this.repGateStatus = "cooldown";
+      feedbackCode = "cooldown";
+      feedback = "Rep counted. Hold steady before starting the next one.";
+    } else if ((this.phase === "idle" || this.phase === "standing_ready" || this.phase === "top_ready") && isTop) {
       this.phase = this.exercise === "squat" ? "standing_ready" : "top_ready";
-      feedback = this.exercise === "squat" ? "Ready. Start a slow squat when stable." : "Ready. Lower with control when stable.";
-    } else if ((this.phase === "standing_ready" || this.phase === "top_ready") && angle < descentThreshold) {
+      this.topStableSince ??= now;
+      const stableFor = now - this.topStableSince;
+      if (stableFor < stableTopMs) {
+        this.repGateStatus = "waiting_for_stable_top";
+        feedbackCode = "waiting_for_stable_top";
+        feedback = this.exercise === "squat" ? "Hold a stable tall stance before starting." : "Hold a stable top plank before starting.";
+      } else {
+        this.repGateStatus = "ready";
+        feedback = this.exercise === "squat" ? "Ready. Start a slow squat when stable." : "Ready. Lower with control when stable.";
+      }
+    } else if ((this.phase === "standing_ready" || this.phase === "top_ready") && isDescending) {
+      if (this.repGateStatus !== "ready") {
+        feedbackCode = "waiting_for_stable_top";
+        feedback = "Return to the top and hold steady before starting a rep.";
+      } else {
+        this.phase = "descending";
+        this.repStartedAt = now;
+        this.bottomSince = null;
+        this.topStableSince = null;
+        this.repGateStatus = "rep_in_progress";
+        feedbackCode = "descending";
+        feedback = "Descending. Keep your movement controlled.";
+      }
+    } else if (this.phase === "descending" && isBottom) {
       this.phase = "descending";
-      feedbackCode = "descending";
-      feedback = "Descending. Keep your movement controlled.";
-    } else if (this.phase === "descending" && angle < bottomThreshold) {
-      this.phase = "bottom";
-      feedbackCode = "bottom";
-      feedback = this.exercise === "squat" ? "Good depth. Drive up smoothly." : "Good depth. Press up smoothly.";
-    } else if (this.phase === "bottom" && angle > ascentThreshold) {
+      this.bottomSince ??= now;
+      if (now - this.bottomSince >= bottomConfirmMs) {
+        this.phase = "bottom";
+        feedbackCode = "bottom";
+        feedback = this.exercise === "squat" ? "Good depth. Drive up smoothly." : "Good depth. Press up smoothly.";
+      } else {
+        feedbackCode = "incomplete_depth";
+        feedback = "Hold the bottom briefly so the rep is clear.";
+      }
+    } else if (this.phase === "bottom" && effectiveAngle > ascentThreshold && !isTop) {
       this.phase = "ascending";
+      this.repGateStatus = "rep_in_progress";
       feedbackCode = "ascending";
       feedback = this.exercise === "squat" ? "Ascending. Keep knees tracking steadily." : "Pressing up. Keep your body in one line.";
-    } else if (this.phase === "ascending" && angle > topThreshold) {
-      this.phase = this.exercise === "squat" ? "standing_ready" : "top_ready";
-      this.reps += 1;
-      feedbackCode = "rep_completed";
-      feedback = this.exercise === "squat" ? "Rep counted. Reset tall before the next rep." : "Rep counted. Reset in a straight top plank.";
-    } else if (this.phase === "descending" && angle > topThreshold) {
-      this.phase = this.exercise === "squat" ? "standing_ready" : "top_ready";
+    } else if (this.phase === "ascending" && isTop) {
+      this.topStableSince ??= now;
+      const repDuration = this.repStartedAt === null ? 0 : now - this.repStartedAt;
+      if (now - this.topStableSince >= stableTopMs && repDuration >= minimumRepMs) {
+        this.phase = this.exercise === "squat" ? "standing_ready" : "top_ready";
+        this.reps += 1;
+        this.lastRepAt = now;
+        this.repStartedAt = null;
+        this.bottomSince = null;
+        this.repGateStatus = "cooldown";
+        feedbackCode = "rep_completed";
+        feedback = this.exercise === "squat" ? "Rep counted. Reset tall before the next rep." : "Rep counted. Reset in a straight top plank.";
+      } else {
+        feedbackCode = "ascending";
+        feedback = repDuration < minimumRepMs ? "Move slower so the rep can be verified." : "Hold the top briefly to finish the rep.";
+      }
+    } else if (this.phase === "descending" && isTop) {
+      this.resetRepAttempt();
+      this.repGateStatus = "waiting_for_stable_top";
       feedbackCode = "shallow_rep";
       feedback = "That rep was too shallow to count. Try a little more depth if comfortable.";
+    } else if (this.phase === "bottom" && isTop) {
+      this.resetRepAttempt();
+      this.repGateStatus = "waiting_for_stable_top";
+      feedbackCode = "incomplete_depth";
+      feedback = "Return through a controlled ascent; quick jumps are not counted.";
     }
 
     this.current = this.makeSnapshot({
       ...assessed,
       phase: this.phase,
       reps: this.reps,
+      repGateStatus: this.repGateStatus,
       formValid: true,
       feedbackCode,
       feedback
