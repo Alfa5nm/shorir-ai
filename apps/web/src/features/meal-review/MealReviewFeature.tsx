@@ -15,6 +15,7 @@ function MealReviewResult({ review }: { review: MealReview }) {
       <StatusPill tone="success">Review ready</StatusPill>
       <h2>{review.probableDishes.length ? review.probableDishes.join(", ") : "Meal review"}</h2>
       <p>Confidence: {review.confidenceLevel}. This is a visual estimate, not a medical assessment.</p>
+      <p className="calorie-estimate">Estimated calories: {review.calorieRange ?? "Needs portion confirmation"}</p>
       <div className="meal-result__grid">
         <article>
           <h3>Calorie range</h3>

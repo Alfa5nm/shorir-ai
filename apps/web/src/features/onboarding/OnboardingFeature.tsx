@@ -53,7 +53,12 @@ export function OnboardingFeature() {
             fitnessLevel: profile.fitnessLevel,
             equipment: profile.equipment,
             weeklySchedule: profile.weeklySchedule,
-            safety: profile.safety
+            safety: profile.safety,
+            height: profile.height,
+            weight: profile.weight,
+            targetWeight: profile.targetWeight,
+            age: profile.age,
+            gender: profile.gender
           });
         }
       })
@@ -111,7 +116,12 @@ export function OnboardingFeature() {
           hasPain: form.safety.hasPain,
           painAreas: form.safety.painAreas.map((area) => area.trim()).filter(Boolean),
           ...(notes ? { notes } : {})
-        }
+        },
+        ...(form.height !== undefined ? { height: form.height } : {}),
+        ...(form.weight !== undefined ? { weight: form.weight } : {}),
+        ...(form.targetWeight !== undefined ? { targetWeight: form.targetWeight } : {}),
+        ...(form.age !== undefined ? { age: form.age } : {}),
+        ...(form.gender !== undefined ? { gender: form.gender } : {})
       });
       setSaved(true);
     } catch (caught) {
@@ -175,6 +185,75 @@ export function OnboardingFeature() {
                 required
                 value={form.goal}
                 onChange={(event) => setForm({ ...form, goal: event.target.value })}
+              />
+            </label>
+            <label>
+              Age
+              <input
+                min="1"
+                step="1"
+                type="number"
+                value={form.age ?? ""}
+                onChange={(event) =>
+                  setForm({ ...form, age: event.target.value === "" ? undefined : Number(event.target.value) })
+                }
+                placeholder="Optional"
+              />
+            </label>
+            <label>
+              Gender
+              <select
+                value={form.gender ?? ""}
+                onChange={(event) =>
+                  setForm({
+                    ...form,
+                    gender: event.target.value === "" ? undefined : (event.target.value as "male" | "female" | "other")
+                  })
+                }
+              >
+                <option value="">Prefer not to say</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label>
+              Height (cm)
+              <input
+                min="1"
+                step="0.1"
+                type="number"
+                value={form.height ?? ""}
+                onChange={(event) =>
+                  setForm({ ...form, height: event.target.value === "" ? undefined : Number(event.target.value) })
+                }
+                placeholder="Optional"
+              />
+            </label>
+            <label>
+              Current weight (kg)
+              <input
+                min="1"
+                step="0.1"
+                type="number"
+                value={form.weight ?? ""}
+                onChange={(event) =>
+                  setForm({ ...form, weight: event.target.value === "" ? undefined : Number(event.target.value) })
+                }
+                placeholder="Optional"
+              />
+            </label>
+            <label>
+              Target weight (kg)
+              <input
+                min="1"
+                step="0.1"
+                type="number"
+                value={form.targetWeight ?? ""}
+                onChange={(event) =>
+                  setForm({ ...form, targetWeight: event.target.value === "" ? undefined : Number(event.target.value) })
+                }
+                placeholder="Optional"
               />
             </label>
           </div>

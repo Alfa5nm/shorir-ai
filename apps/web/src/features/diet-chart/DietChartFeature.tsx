@@ -17,6 +17,14 @@ interface MealPlan {
   foods: MealFood[];
 }
 
+interface NutritionTarget {
+  calories: number;
+  carbs: number;
+  protein: number;
+  fat: number;
+  source: "body_metrics" | "fitness_level";
+}
+
 const levelPortion: Record<FitnessLevel, number> = {
   beginner: 0.9,
   returning: 1,
@@ -41,13 +49,51 @@ function mealTotal(meal: MealPlan) {
   );
 }
 
+function calculateNutritionTarget(profile: Profile): NutritionTarget | null {
+  const { age, gender, height, weight, targetWeight } = profile;
+  if (!age || !gender || !height || !weight || !targetWeight) return null;
+
+  let bmr = 10 * weight + 6.25 * height - 5 * age;
+  if (gender === "male") bmr += 5;
+  else if (gender === "female") bmr -= 161;
+  else bmr -= 78;
+
+  let calories = Math.round(bmr * 1.375);
+  if (targetWeight < weight) calories -= 500;
+  if (targetWeight > weight) calories += 500;
+  if (gender === "male" && calories < 1500) calories = 1500;
+  if (gender === "female" && calories < 1200) calories = 1200;
+  if (gender === "other" && calories < 1350) calories = 1350;
+
+  return {
+    calories,
+    carbs: Math.round((calories * 0.5) / 4),
+    protein: Math.round((calories * 0.3) / 4),
+    fat: Math.round((calories * 0.2) / 9),
+    source: "body_metrics"
+  };
+}
+
+function scaleMealToCalories(meal: MealPlan, targetCalories: number): MealPlan {
+  const total = mealTotal(meal).calories;
+  if (total <= 0) return meal;
+  const multiplier = targetCalories / total;
+  return {
+    ...meal,
+    foods: meal.foods.map((item) => ({
+      ...item,
+      portionMultiplier: item.portionMultiplier * multiplier
+    }))
+  };
+}
+
 function buildMeals(profile: Profile): MealPlan[] {
   const base = levelPortion[profile.fitnessLevel];
   const goal = profile.goal.toLowerCase();
   const proteinBoost = goal.includes("muscle") || goal.includes("strength") || goal.includes("build") ? 1.12 : 1;
   const lighterCarb = goal.includes("weight") || goal.includes("fat") ? 0.86 : 1;
 
-  return [
+  const meals = [
     {
       name: "Breakfast",
       note: "A familiar, filling start with protein and slow energy.",
@@ -75,6 +121,13 @@ function buildMeals(profile: Profile): MealPlan[] {
         { food: foodById("spinach_bhaji"), portionMultiplier: base * 1.2 }
       ]
     }
+  ];
+  const target = calculateNutritionTarget(profile);
+  if (!target) return meals;
+  return [
+    scaleMealToCalories(meals[0]!, target.calories * 0.25),
+    scaleMealToCalories(meals[1]!, target.calories * 0.4),
+    scaleMealToCalories(meals[2]!, target.calories * 0.35)
   ];
 }
 
@@ -115,6 +168,14 @@ export function DietChartFeature() {
     },
     { calories: 0, carbs: 0, protein: 0, fat: 0 }
   );
+  const nutritionTarget = profile ? calculateNutritionTarget(profile) : null;
+  const summaryTarget: NutritionTarget = nutritionTarget ?? {
+    calories: Math.round(dayTotal.calories),
+    carbs: Math.round(dayTotal.carbs),
+    protein: Math.round(dayTotal.protein),
+    fat: Math.round(dayTotal.fat),
+    source: "fitness_level"
+  };
 
   if (isLoading) {
     return <section className="panel loading-state"><Loader2 className="spin" /> Loading diet chart...</section>;
@@ -148,23 +209,30 @@ export function DietChartFeature() {
       <div className="diet-summary">
         <article>
           <Utensils size={22} aria-hidden="true" />
-          <span>Estimated daily energy</span>
-          <strong>{Math.round(dayTotal.calories)} kcal</strong>
+          <span>{summaryTarget.source === "body_metrics" ? "Daily calorie target" : "Estimated daily energy"}</span>
+          <strong>{summaryTarget.calories} kcal</strong>
         </article>
         <article>
-          <span>Protein</span>
-          <strong>{Math.round(dayTotal.protein)} g</strong>
+          <span>Protein target</span>
+          <strong>{summaryTarget.protein} g</strong>
         </article>
         <article>
-          <span>Carbs</span>
-          <strong>{Math.round(dayTotal.carbs)} g</strong>
+          <span>Carbs target</span>
+          <strong>{summaryTarget.carbs} g</strong>
         </article>
         <article>
           <CalendarDays size={22} aria-hidden="true" />
-          <span>Planned days</span>
-          <strong>{profile.weeklySchedule.length || "Flexible"}</strong>
+          <span>Fat target</span>
+          <strong>{summaryTarget.fat} g</strong>
         </article>
       </div>
+
+      {!nutritionTarget && (
+        <div className="coach-feedback">
+          <AlertCircle size={20} aria-hidden="true" />
+          <p>Add age, gender, height, current weight, and target weight in onboarding for a more personalized calorie target.</p>
+        </div>
+      )}
 
       {profile.safety.hasPain && (
         <div className="coach-feedback">

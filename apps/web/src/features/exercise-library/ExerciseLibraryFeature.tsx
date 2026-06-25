@@ -1,13 +1,17 @@
-import { ArrowRight, BookOpen, Dumbbell, Filter, Video } from "lucide-react";
+import { ArrowRight, BookOpen, Dumbbell, Filter, MapPin, Video } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { type ExerciseGuide, exerciseGuides } from "./exerciseGuides";
 
-type DifficultyFilter = ExerciseGuide["difficulty"] | "all";
+type DifficultyFilter = string | "all";
 type EquipmentFilter = string | "all";
+type LocationFilter = string | "all";
+
+const exerciseAssetBaseUrl = "https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/master/";
 
 function GuideSection({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) return null;
   return (
     <section>
       <h3>{title}</h3>
@@ -17,6 +21,7 @@ function GuideSection({ title, items }: { title: string; items: string[] }) {
 }
 
 export function ExerciseLibraryFeature() {
+  const [locationFilter, setLocationFilter] = useState<LocationFilter>("all");
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>("all");
   const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>("all");
   const [selectedGuideId, setSelectedGuideId] = useState<ExerciseGuide["id"]>(exerciseGuides[0]?.id ?? "squat");
@@ -25,19 +30,37 @@ export function ExerciseLibraryFeature() {
     () => Array.from(new Set(exerciseGuides.flatMap((guide) => guide.equipment))).sort(),
     []
   );
+  const difficultyOptions = useMemo(
+    () => Array.from(new Set(exerciseGuides.map((guide) => guide.difficulty))).sort(),
+    []
+  );
+  const locationOptions = useMemo(
+    () => Array.from(new Set(exerciseGuides.map((guide) => guide.location))).sort(),
+    []
+  );
 
   const filteredGuides = useMemo(
     () =>
       exerciseGuides.filter((guide) => {
+        const matchesLocation = locationFilter === "all" || guide.location === locationFilter || guide.location === "both";
         const matchesDifficulty = difficultyFilter === "all" || guide.difficulty === difficultyFilter;
         const matchesEquipment = equipmentFilter === "all" || guide.equipment.includes(equipmentFilter);
-        return matchesDifficulty && matchesEquipment;
+        return matchesLocation && matchesDifficulty && matchesEquipment;
       }),
-    [difficultyFilter, equipmentFilter]
+    [difficultyFilter, equipmentFilter, locationFilter]
   );
 
   const selectedGuide =
     filteredGuides.find((guide) => guide.id === selectedGuideId) ?? filteredGuides[0] ?? null;
+  const selectedGuideSections = selectedGuide
+    ? [
+        selectedGuide.setupSteps.length,
+        selectedGuide.movementSteps.length,
+        selectedGuide.commonMistakes.length,
+        selectedGuide.safetyCues.length,
+        selectedGuide.cameraGuidance.length
+      ].reduce((total, count) => total + count, 0)
+    : 0;
 
   return (
     <section className="exercise-library">
@@ -49,13 +72,23 @@ export function ExerciseLibraryFeature() {
 
       <div className="exercise-library__controls" aria-label="Exercise filters">
         <label>
+          <MapPin size={18} aria-hidden="true" />
+          <span>Location</span>
+          <select value={locationFilter} onChange={(event) => setLocationFilter(event.target.value)}>
+            <option value="all">All locations</option>
+            {locationOptions.map((location) => (
+              <option key={location} value={location}>{location}</option>
+            ))}
+          </select>
+        </label>
+        <label>
           <Filter size={18} aria-hidden="true" />
           <span>Difficulty</span>
           <select value={difficultyFilter} onChange={(event) => setDifficultyFilter(event.target.value as DifficultyFilter)}>
             <option value="all">All levels</option>
-            <option value="beginner">Beginner</option>
-            <option value="returning">Returning</option>
-            <option value="intermediate">Intermediate</option>
+            {difficultyOptions.map((difficulty) => (
+              <option key={difficulty} value={difficulty}>{difficulty}</option>
+            ))}
           </select>
         </label>
         <label>
@@ -91,7 +124,7 @@ export function ExerciseLibraryFeature() {
                   <small>{guide.nameBn}</small>
                 </span>
                 <StatusPill tone={guide.liveCoaching ? "success" : "neutral"}>
-                  {guide.liveCoaching ? "Live coach" : "Guide only"}
+                  {guide.liveCoaching ? "Live coach" : guide.location}
                 </StatusPill>
               </button>
             ))}
@@ -111,14 +144,30 @@ export function ExerciseLibraryFeature() {
               </div>
               <div className="exercise-guide-card__meta">
                 <span>{selectedGuide.difficulty}</span>
+                <span>{selectedGuide.location}</span>
                 {selectedGuide.equipment.map((equipment) => <span key={equipment}>{equipment}</span>)}
               </div>
+              {selectedGuide.gifUrl && (
+                <div className="exercise-guide-card__media">
+                  <img
+                    src={`${exerciseAssetBaseUrl}${selectedGuide.gifUrl}`}
+                    alt={`${selectedGuide.nameEn} demonstration`}
+                    loading="lazy"
+                  />
+                </div>
+              )}
               <div className="exercise-guide-card__content">
-                <GuideSection title="Setup" items={selectedGuide.setupSteps} />
+                <GuideSection title={selectedGuide.movementSteps.length === 0 ? "Instructions" : "Setup"} items={selectedGuide.setupSteps} />
                 <GuideSection title="Movement" items={selectedGuide.movementSteps} />
                 <GuideSection title="Common mistakes" items={selectedGuide.commonMistakes} />
                 <GuideSection title="Safety" items={selectedGuide.safetyCues} />
                 <GuideSection title="Camera" items={selectedGuide.cameraGuidance} />
+                {selectedGuideSections === 0 && (
+                  <section>
+                    <h3>Guide details</h3>
+                    <p>Detailed coaching notes are not available for this exercise yet.</p>
+                  </section>
+                )}
               </div>
               {selectedGuide.liveCoaching && (
                 <Link className="exercise-guide-card__action" to={`/coach?exercise=${encodeURIComponent(selectedGuide.id)}`}>
