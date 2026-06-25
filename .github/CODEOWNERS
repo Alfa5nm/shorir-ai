@@ -1,0 +1,11 @@
+* @Alfa5nm
+
+# Integration-owned paths
+/apps/api/ @Alfa5nm
+/packages/ @Alfa5nm
+/supabase/ @Alfa5nm
+/.github/ @Alfa5nm
+
+# Contributor work still requires integration-owner review.
+/apps/web/src/features/exercise-library/ @Alfa5nm
+/delegated/exercise-library/ @Alfa5nm

@@ -1,0 +1,33 @@
+import type { ReactNode } from "react";
+import { NavLink } from "react-router-dom";
+import { BrandStrip } from "../branding/BrandStrip";
+
+const navItems = [
+  { href: "/", label: "Dashboard" },
+  { href: "/onboarding", label: "Onboarding" },
+  { href: "/coach", label: "Pose Coach" },
+  { href: "/exercise-library", label: "Personalized Exercises" },
+  { href: "/diet-chart", label: "Personalized Diet Chart" },
+  { href: "/meal", label: "Meal Review" },
+  { href: "/progress", label: "Progress" },
+  { href: "/presentation", label: "Presentation" },
+  { href: "/report", label: "Report" }
+];
+
+export function AppLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="app-shell">
+      <header className="site-header">
+        <BrandStrip />
+        <nav className="site-nav" aria-label="Primary navigation">
+          {navItems.map((item) => (
+            <NavLink key={item.href} to={item.href}>
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+      </header>
+      <main className="page-shell">{children}</main>
+    </div>
+  );
+}
