@@ -24,6 +24,7 @@ export interface CalibrationProfile {
   topAngle: number;
   depthAngle: number;
   referenceScale: number;
+  referenceDepth: number | null;
 }
 
 export type FeedbackCode =
@@ -115,6 +116,7 @@ interface CalibrationSample {
   box: NormalizedBox;
   angle: number;
   bodyScale: number;
+  depth: number | null;
 }
 
 function landmarkByName(frame: PoseFrame, name: string) {
@@ -168,6 +170,11 @@ function clamp(value: number, minimum = 0, maximum = 1) {
 export function poseBox(frame: PoseFrame): NormalizedBox | null {
   const landmarks = frame.landmarks.filter((landmark) => landmark.confidence >= 0.55);
   if (landmarks.length < 8) return null;
+  return poseBoxFromLandmarks(landmarks);
+}
+
+function poseBoxFromLandmarks(landmarks: PoseLandmark[]): NormalizedBox | null {
+  if (landmarks.length < 3) return null;
   const xs = landmarks.map((landmark) => landmark.x);
   const ys = landmarks.map((landmark) => landmark.y);
   const x = clamp(Math.min(...xs));
@@ -178,6 +185,26 @@ export function poseBox(frame: PoseFrame): NormalizedBox | null {
     width: clamp(Math.max(...xs) - x),
     height: clamp(Math.max(...ys) - y)
   };
+}
+
+function requiredLandmarks(exercise: SupportedExercise, side: SideLandmarks): PoseLandmark[] {
+  const required =
+    exercise === "squat"
+      ? [side.shoulder, side.hip, side.knee, side.ankle]
+      : [side.shoulder, side.elbow, side.wrist, side.hip, side.ankle];
+  return required.filter((landmark): landmark is PoseLandmark => landmark !== null && landmark.confidence >= 0.45);
+}
+
+function exercisePoseBox(frame: PoseFrame, exercise: SupportedExercise, side: SideLandmarks): NormalizedBox | null {
+  const required = requiredLandmarks(exercise, side);
+  const minimumRequired = exercise === "squat" ? 4 : 5;
+  if (required.length < minimumRequired) return poseBox(frame);
+
+  const requiredNames = new Set(required.map((landmark) => landmark.name));
+  const optional = frame.landmarks.filter(
+    (landmark) => landmark.confidence >= 0.55 && !requiredNames.has(landmark.name)
+  );
+  return poseBoxFromLandmarks([...required, ...optional]) ?? poseBoxFromLandmarks(required);
 }
 
 function bodyScale(exercise: SupportedExercise, side: SideLandmarks) {
@@ -224,12 +251,18 @@ function averageSample(samples: CalibrationSample[]) {
   const totals = samples.reduce(
     (result, sample) => ({
       angle: result.angle + sample.angle,
-      bodyScale: result.bodyScale + sample.bodyScale
+      bodyScale: result.bodyScale + sample.bodyScale,
+      depth: result.depth + (sample.depth ?? 0),
+      depthCount: result.depthCount + (sample.depth === null ? 0 : 1)
     }),
-    { angle: 0, bodyScale: 0 }
+    { angle: 0, bodyScale: 0, depth: 0, depthCount: 0 }
   );
   const count = Math.max(samples.length, 1);
-  return { angle: totals.angle / count, bodyScale: totals.bodyScale / count };
+  return {
+    angle: totals.angle / count,
+    bodyScale: totals.bodyScale / count,
+    depth: totals.depthCount > 0 ? totals.depth / totals.depthCount : null
+  };
 }
 
 function requiredConfidence(exercise: SupportedExercise, side: SideLandmarks) {
@@ -247,6 +280,30 @@ function primaryAngle(exercise: SupportedExercise, side: SideLandmarks) {
   return side.shoulder && side.elbow && side.wrist
     ? angleDegrees(side.shoulder, side.elbow, side.wrist)
     : null;
+}
+
+function averageDepth(side: SideLandmarks) {
+  const landmarks = [side.shoulder, side.elbow, side.wrist, side.hip, side.knee, side.ankle].filter(
+    (landmark): landmark is PoseLandmark => landmark !== null && typeof landmark.z === "number"
+  );
+  if (landmarks.length < 3) return null;
+  return landmarks.reduce((total, landmark) => total + (landmark.z ?? 0), 0) / landmarks.length;
+}
+
+function depthStatusFrom(profile: CalibrationProfile, currentScale: number, currentDepth: number | null): DistanceStatus {
+  const scaleRatio = currentScale / profile.referenceScale;
+  if (scaleRatio > 1.42) return "close";
+  if (scaleRatio < 0.66) return "far";
+
+  if (profile.referenceDepth !== null && currentDepth !== null) {
+    const depthDelta = currentDepth - profile.referenceDepth;
+    if (depthDelta < -0.18 && scaleRatio > 1.14) return "close";
+    if (depthDelta > 0.18 && scaleRatio < 0.88) return "far";
+  }
+
+  if (scaleRatio > 1.28) return "close";
+  if (scaleRatio < 0.76) return "far";
+  return "good";
 }
 
 function plankDeviation(side: SideLandmarks) {
@@ -337,9 +394,10 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
 
   process(frame: PoseFrame) {
     const side = chooseSide(frame, this.exercise);
-    const box = poseBox(frame);
+    const box = exercisePoseBox(frame, this.exercise, side);
     const scale = bodyScale(this.exercise, side);
     const angle = primaryAngle(this.exercise, side);
+    const depth = averageDepth(side);
     const confidence = Math.min(frame.confidence, requiredConfidence(this.exercise, side));
     const base = {
       confidence,
@@ -380,8 +438,8 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
         return this.current;
       }
 
-      this.topSamples.push({ box, angle, bodyScale: scale });
-      const sampleTarget = this.exercise === "squat" ? 36 : 24;
+      this.topSamples.push({ box, angle, bodyScale: scale, depth });
+      const sampleTarget = this.exercise === "squat" ? 14 : 10;
       if (this.topSamples.length < sampleTarget) {
         this.current = this.makeSnapshot({
           ...base,
@@ -420,7 +478,8 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
           region: activityRegion(this.calibrationBoxes),
           topAngle: Math.round(top.angle),
           depthAngle: Math.round(minimumAngle),
-          referenceScale: top.bodyScale
+          referenceScale: top.bodyScale,
+          referenceDepth: top.depth
         };
         this.calibrationPhase = "complete";
         this.phase = this.exercise === "squat" ? "standing_ready" : "top_ready";
@@ -462,9 +521,8 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
       return this.current;
     }
 
-    const scaleRatio = scale / profile.referenceScale;
     const regionValid = boxInsideRegion(box, profile.region);
-    const distanceStatus: DistanceStatus = scaleRatio > 1.32 ? "close" : scaleRatio < 0.72 ? "far" : "good";
+    const distanceStatus = depthStatusFrom(profile, scale, depth);
     const assessed = { ...base, regionValid, distanceStatus };
 
     if (!regionValid) {

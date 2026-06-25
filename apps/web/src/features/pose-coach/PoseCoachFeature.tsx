@@ -263,6 +263,7 @@ export function PoseCoachFeature() {
           topAngle: profile.topAngle,
           depthAngle: profile.depthAngle,
           referenceScale: Number(profile.referenceScale.toFixed(4)),
+          referenceDepth: profile.referenceDepth === null ? null : Number(profile.referenceDepth.toFixed(4)),
           activityRegion: profile.region
         }
       });
@@ -662,6 +663,7 @@ export function PoseCoachFeature() {
             {metrics.calibrationProfile && (
               <small>
                 Top {metrics.calibrationProfile.topAngle} deg / target depth {metrics.calibrationProfile.depthAngle} deg
+                {metrics.calibrationProfile.referenceDepth === null ? " / scale-only depth" : " / relative depth locked"}
               </small>
             )}
           </div>

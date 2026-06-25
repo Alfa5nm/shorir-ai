@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { PoseFrame, PoseLandmark } from "../../ports/poseEstimator";
 import { createExerciseAnalyzer } from "./exerciseAnalyzer";
 
-function landmark(name: string, x: number, y: number, confidence = 0.99): PoseLandmark {
-  return { name, x, y, confidence };
+function landmark(name: string, x: number, y: number, confidence = 0.99, z?: number): PoseLandmark {
+  return z === undefined ? { name, x, y, confidence } : { name, x, y, confidence, z };
 }
 
 function frame(points: PoseLandmark[], confidence = 0.99): PoseFrame {
@@ -67,6 +67,16 @@ function pushUpFrame(angle: "top" | "middle" | "bottom", hipOffset = 0, wristX =
   ]);
 }
 
+function minimalPushUpFrame(angle: "top" | "middle" | "bottom") {
+  const source = pushUpFrame(angle);
+  return {
+    ...source,
+    landmarks: source.landmarks
+      .filter((point) => point.name.startsWith("left_"))
+      .map((point) => ({ ...point, z: angle === "bottom" ? -0.08 : -0.02 }))
+  };
+}
+
 function squatFrame(kneeX: number, kneeY: number) {
   return frame([
     landmark("left_shoulder", 0.46, 0.2),
@@ -109,6 +119,21 @@ describe("push-up analyzer", () => {
       expect(completed.feedbackCode).toBe("rep_completed");
       expect(analyzer.process(pushUpFrame("top")).reps).toBe(expectedReps);
     }
+  });
+
+  it("calibrates from side-view landmarks without requiring a full-body landmark box", () => {
+    const analyzer = createExerciseAnalyzer("push-up");
+    analyzer.beginCalibration();
+    for (let index = 0; index < 10; index += 1) analyzer.process(minimalPushUpFrame("top"));
+    analyzer.process(minimalPushUpFrame("middle"));
+    analyzer.process(minimalPushUpFrame("bottom"));
+    const calibrated = analyzer.process(minimalPushUpFrame("top"));
+    expect(calibrated.calibrationPhase).toBe("complete");
+    expect(calibrated.calibrationProfile?.referenceDepth).not.toBeNull();
+    analyzer.process(minimalPushUpFrame("middle"));
+    analyzer.process(minimalPushUpFrame("bottom"));
+    analyzer.process(minimalPushUpFrame("middle"));
+    expect(analyzer.process(minimalPushUpFrame("top")).reps).toBe(1);
   });
 
   it("does not count shallow or incomplete movement", () => {
