@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { AboutCompetitionRoute } from "../routes/AboutCompetitionRoute";
 import { CoachRoute } from "../routes/CoachRoute";
+import { DietChartRoute } from "../routes/DietChartRoute";
 import { ExerciseLibraryRoute } from "../routes/ExerciseLibraryRoute";
 import { HomeRoute } from "../routes/HomeRoute";
 import { MealRoute } from "../routes/MealRoute";
@@ -21,6 +22,7 @@ export function AppRouter() {
           <Route path="/onboarding" element={<OnboardingRoute />} />
           <Route path="/coach" element={<CoachRoute />} />
           <Route path="/exercise-library" element={<ExerciseLibraryRoute />} />
+          <Route path="/diet-chart" element={<DietChartRoute />} />
           <Route path="/progress" element={<ProgressRoute />} />
           <Route path="/meal" element={<MealRoute />} />
           <Route path="/capture/:id" element={<QrCaptureRoute />} />

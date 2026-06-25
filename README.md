@@ -11,6 +11,7 @@ summaries.
 - Calibrated activity region, personal depth threshold, and relative camera-distance checks.
 - Adaptive animated squat and push-up demonstrations.
 - Direct encrypted WebRTC phone camera pairing through an automated HTTPS QR flow.
+- Profile-aware Bangladeshi diet chart with local meal images.
 - Desktop and QR phone meal-image review.
 - Saved session and coach-review progress dashboard.
 - Independent exercise-library contribution module.

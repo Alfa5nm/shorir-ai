@@ -7,6 +7,7 @@ const navItems = [
   { href: "/onboarding", label: "Onboarding" },
   { href: "/coach", label: "Pose Coach" },
   { href: "/exercise-library", label: "Exercises" },
+  { href: "/diet-chart", label: "Diet Chart" },
   { href: "/meal", label: "Meal Review" },
   { href: "/progress", label: "Progress" },
   { href: "/presentation", label: "Presentation" },
