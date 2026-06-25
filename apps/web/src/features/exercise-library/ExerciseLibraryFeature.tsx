@@ -1,8 +1,8 @@
 import { ArrowRight, BookOpen, Dumbbell, Filter, MapPin, Video } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { StatusPill } from "../../components/ui/StatusPill";
-import { type ExerciseGuide, exerciseGuides } from "./exerciseGuides";
+import { exerciseGuideById, exerciseGuides, liveCoachPath } from "./exerciseGuides";
 
 type DifficultyFilter = string | "all";
 type EquipmentFilter = string | "all";
@@ -21,10 +21,11 @@ function GuideSection({ title, items }: { title: string; items: string[] }) {
 }
 
 export function ExerciseLibraryFeature() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [locationFilter, setLocationFilter] = useState<LocationFilter>("all");
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>("all");
   const [equipmentFilter, setEquipmentFilter] = useState<EquipmentFilter>("all");
-  const [selectedGuideId, setSelectedGuideId] = useState<ExerciseGuide["id"]>(exerciseGuides[0]?.id ?? "squat");
+  const requestedGuide = exerciseGuideById(searchParams.get("guide"));
 
   const equipmentOptions = useMemo(
     () => Array.from(new Set(exerciseGuides.flatMap((guide) => guide.equipment))).sort(),
@@ -51,7 +52,8 @@ export function ExerciseLibraryFeature() {
   );
 
   const selectedGuide =
-    filteredGuides.find((guide) => guide.id === selectedGuideId) ?? filteredGuides[0] ?? null;
+    filteredGuides.find((guide) => guide.id === requestedGuide?.id) ?? filteredGuides[0] ?? null;
+  const selectedCoachPath = selectedGuide ? liveCoachPath(selectedGuide) : null;
   const selectedGuideSections = selectedGuide
     ? [
         selectedGuide.setupSteps.length,
@@ -117,14 +119,16 @@ export function ExerciseLibraryFeature() {
                 className={selectedGuide?.id === guide.id ? "exercise-guide-list__item is-active" : "exercise-guide-list__item"}
                 key={guide.id}
                 type="button"
-                onClick={() => setSelectedGuideId(guide.id)}
+                onClick={() => {
+                  setSearchParams({ guide: guide.id }, { replace: true });
+                }}
               >
                 <span>
                   <strong>{guide.nameEn}</strong>
                   <small>{guide.nameBn}</small>
                 </span>
-                <StatusPill tone={guide.liveCoaching ? "success" : "neutral"}>
-                  {guide.liveCoaching ? "Live coach" : guide.location}
+                <StatusPill tone={guide.liveCoachExercise ? "success" : "neutral"}>
+                  {guide.liveCoachExercise ? "Live coach" : guide.location}
                 </StatusPill>
               </button>
             ))}
@@ -138,8 +142,8 @@ export function ExerciseLibraryFeature() {
                   <h2>{selectedGuide.nameEn}</h2>
                   <p>{selectedGuide.nameBn}</p>
                 </div>
-                <StatusPill tone={selectedGuide.liveCoaching ? "success" : "neutral"}>
-                  {selectedGuide.liveCoaching ? "Live coach" : "Coming later"}
+                <StatusPill tone={selectedGuide.liveCoachExercise ? "success" : "neutral"}>
+                  {selectedGuide.liveCoachExercise ? "Live coach" : "Guide only"}
                 </StatusPill>
               </div>
               <div className="exercise-guide-card__meta">
@@ -169,10 +173,10 @@ export function ExerciseLibraryFeature() {
                   </section>
                 )}
               </div>
-              {selectedGuide.liveCoaching && (
-                <Link className="exercise-guide-card__action" to={`/coach?exercise=${encodeURIComponent(selectedGuide.id)}`}>
+              {selectedCoachPath && (
+                <Link className="exercise-guide-card__action" to={selectedCoachPath}>
                   <Video size={18} />
-                  Open live coach
+                  Practice with live coach
                   <ArrowRight size={18} />
                 </Link>
               )}

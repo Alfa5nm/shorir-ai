@@ -1,7 +1,7 @@
 import type { ExerciseType } from "@shorir/contracts";
 import type { PoseFrame, PoseLandmark } from "../../ports/poseEstimator";
 
-export type SupportedExercise = Extract<ExerciseType, "squat" | "push-up">;
+export type SupportedExercise = Extract<ExerciseType, "squat" | "push-up" | "lunge">;
 export type CalibrationPhase = "idle" | "standing" | "depth" | "complete";
 export type DistanceStatus = "unknown" | "close" | "good" | "far";
 export type QualityStatus = "unknown" | "calibrating" | "ready" | "blocked";
@@ -115,6 +115,14 @@ export const exerciseDefinitions: Record<SupportedExercise, ExerciseDefinition> 
     primaryAngleLabel: "Elbow angle",
     initialFeedback: "Set the camera side-on and keep shoulder, wrist, hip, and ankle visible.",
     activeFeedback: "Tracking is active. Hold a straight top plank to begin calibration."
+  },
+  lunge: {
+    id: "lunge",
+    name: "Lunge",
+    heading: "Live lunge pose coach",
+    primaryAngleLabel: "Front knee angle",
+    initialFeedback: "Stand side-on with both feet and your full body visible, then start tracking.",
+    activeFeedback: "Tracking is active. Stand tall, then step into a controlled lunge."
   }
 };
 
@@ -158,8 +166,22 @@ const bottomConfirmMs = 120;
 const cooldownMs = 600;
 const smoothingWindowSize = 5;
 
+function isStandingExercise(exercise: SupportedExercise) {
+  return exercise !== "push-up";
+}
+
+function readyPhase(exercise: SupportedExercise): ExercisePhase {
+  return isStandingExercise(exercise) ? "standing_ready" : "top_ready";
+}
+
 function landmarkByName(frame: PoseFrame, name: string) {
   return frame.landmarks.find((landmark) => landmark.name === name) ?? null;
+}
+
+function lungeLegsVisible(frame: PoseFrame) {
+  return ["left_knee", "left_ankle", "right_knee", "right_ankle"].every(
+    (name) => (landmarkByName(frame, name)?.confidence ?? 0) >= qualityConfidenceThreshold
+  );
 }
 
 function averageConfidence(landmarks: Array<PoseLandmark | null>) {
@@ -229,7 +251,7 @@ function poseBoxFromLandmarks(landmarks: PoseLandmark[]): NormalizedBox | null {
 
 function requiredLandmarks(exercise: SupportedExercise, side: SideLandmarks): PoseLandmark[] {
   const required =
-    exercise === "squat"
+    isStandingExercise(exercise)
       ? [side.shoulder, side.hip, side.knee, side.ankle]
       : [side.shoulder, side.elbow, side.wrist, side.hip, side.ankle];
   return required.filter((landmark): landmark is PoseLandmark => landmark !== null && landmark.confidence >= 0.45);
@@ -237,7 +259,7 @@ function requiredLandmarks(exercise: SupportedExercise, side: SideLandmarks): Po
 
 function exercisePoseBox(frame: PoseFrame, exercise: SupportedExercise, side: SideLandmarks): NormalizedBox | null {
   const required = requiredLandmarks(exercise, side);
-  const minimumRequired = exercise === "squat" ? 4 : 5;
+  const minimumRequired = isStandingExercise(exercise) ? 4 : 5;
   if (required.length < minimumRequired) return poseBox(frame);
 
   const requiredNames = new Set(required.map((landmark) => landmark.name));
@@ -249,7 +271,7 @@ function exercisePoseBox(frame: PoseFrame, exercise: SupportedExercise, side: Si
 
 function bodyScale(exercise: SupportedExercise, side: SideLandmarks) {
   if (!side.shoulder || !side.hip || !side.ankle) return null;
-  if (exercise === "squat") {
+  if (isStandingExercise(exercise)) {
     if (!side.knee) return null;
     return (
       landmarkDistance(side.shoulder, side.hip) +
@@ -307,14 +329,14 @@ function averageSample(samples: CalibrationSample[]) {
 
 function requiredConfidence(exercise: SupportedExercise, side: SideLandmarks) {
   const required =
-    exercise === "squat"
+    isStandingExercise(exercise)
       ? [side.shoulder, side.hip, side.knee, side.ankle]
       : [side.shoulder, side.elbow, side.wrist, side.hip, side.ankle];
   return averageConfidence(required);
 }
 
 function primaryAngle(exercise: SupportedExercise, side: SideLandmarks) {
-  if (exercise === "squat") {
+  if (isStandingExercise(exercise)) {
     return side.hip && side.knee && side.ankle ? angleDegrees(side.hip, side.knee, side.ankle) : null;
   }
   return side.shoulder && side.elbow && side.wrist
@@ -409,7 +431,7 @@ function measurementJitter(measurements: Measurement[]) {
 }
 
 function sideViewReason(exercise: SupportedExercise, side: SideLandmarks, box: NormalizedBox, scale: number) {
-  if (exercise === "squat") {
+  if (isStandingExercise(exercise)) {
     if (box.height < 0.34) return "full body not visible";
     return null;
   }
@@ -538,14 +560,16 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
     this.current = this.makeSnapshot({
       feedbackCode: "calibration_setup",
       feedback:
-        this.exercise === "squat"
-          ? "Calibration: stand tall and still with your full body visible."
-          : "Calibration: hold a straight top plank side-on with your full body visible."
+        this.exercise === "push-up"
+          ? "Calibration: hold a straight top plank side-on with your full body visible."
+          : this.exercise === "lunge"
+            ? "Calibration: stand tall and still with both feet and your full body visible."
+            : "Calibration: stand tall and still with your full body visible."
     });
     return this.current;
   }
 
-  private resetRepAttempt(nextPhase: ExercisePhase = this.exercise === "squat" ? "standing_ready" : "top_ready") {
+  private resetRepAttempt(nextPhase: ExercisePhase = readyPhase(this.exercise)) {
     this.phase = nextPhase;
     this.repStartedAt = null;
     this.bottomSince = null;
@@ -606,7 +630,7 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
       calibrationProfile: this.calibrationProfile
     };
 
-    if (confidence < 0.55 || angle === null) {
+    if (confidence < 0.55 || angle === null || (this.exercise === "lunge" && !lungeLegsVisible(frame))) {
       if (this.calibrationPhase === "complete") {
         this.resetRepAttempt();
         this.qualityStreak = 0;
@@ -620,16 +644,18 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
         repGateStatus: this.repGateStatus,
         feedbackCode: "low_confidence",
         feedback:
-          this.exercise === "squat"
-            ? "Cannot assess confidently. Step back and keep shoulder, hip, knee, and ankle visible."
-            : "Cannot assess confidently. Keep shoulder, elbow, wrist, hip, and ankle visible from the side."
+          this.exercise === "push-up"
+            ? "Cannot assess confidently. Keep shoulder, elbow, wrist, hip, and ankle visible from the side."
+            : this.exercise === "lunge"
+              ? "Cannot assess confidently. Keep both knees, both ankles, and your full body visible."
+              : "Cannot assess confidently. Step back and keep shoulder, hip, knee, and ankle visible."
       });
       return this.current;
     }
 
     if (this.calibrationPhase === "standing") {
       const validTop =
-        this.exercise === "squat"
+        isStandingExercise(this.exercise)
           ? Boolean(box && scale && box.height >= 0.34 && angle >= 145)
           : Boolean(box && scale && box.width >= 0.34 && angle >= 145 && Math.abs(plankDeviation(side) ?? 1) < 0.065);
       if (!validTop || !box || !scale) {
@@ -637,15 +663,15 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
           ...base,
           feedbackCode: "calibration_setup",
           feedback:
-            this.exercise === "squat"
-              ? "Calibration: step back, stand tall, and keep your full body visible."
-              : "Calibration: show your full side profile and hold a straight top plank."
+            this.exercise === "push-up"
+              ? "Calibration: show your full side profile and hold a straight top plank."
+              : "Calibration: step back, stand tall, and keep your full body visible."
         });
         return this.current;
       }
 
       this.topSamples.push({ box, angle, bodyScale: scale, depth });
-      const sampleTarget = this.exercise === "squat" ? 14 : 10;
+      const sampleTarget = isStandingExercise(this.exercise) ? 14 : 10;
       if (this.topSamples.length < sampleTarget) {
         this.current = this.makeSnapshot({
           ...base,
@@ -662,9 +688,11 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
         calibrationPhase: "depth",
         feedbackCode: "calibration_move",
         feedback:
-          this.exercise === "squat"
-            ? "Calibration: perform one comfortable squat, then stand tall."
-            : "Calibration: perform one comfortable push-up, then return to the top plank."
+          this.exercise === "push-up"
+            ? "Calibration: perform one comfortable push-up, then return to the top plank."
+            : this.exercise === "lunge"
+              ? "Calibration: perform one comfortable forward lunge, then stand tall."
+              : "Calibration: perform one comfortable squat, then stand tall."
       });
       return this.current;
     }
@@ -675,7 +703,7 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
       const top = averageSample(this.topSamples);
       this.minimumDepthAngle = Math.min(this.minimumDepthAngle ?? angle, angle);
       const minimumAngle = this.minimumDepthAngle;
-      const requiredDrop = this.exercise === "squat" ? 28 : 30;
+      const requiredDrop = this.exercise === "lunge" ? 34 : this.exercise === "squat" ? 28 : 30;
       const reachedDepth = minimumAngle <= top.angle - requiredDrop;
       const returnedToTop = angle >= top.angle - 10;
 
@@ -688,7 +716,7 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
           referenceDepth: top.depth
         };
         this.calibrationPhase = "complete";
-        this.phase = this.exercise === "squat" ? "standing_ready" : "top_ready";
+        this.phase = readyPhase(this.exercise);
         this.current = this.makeSnapshot({
           ...base,
           phase: this.phase,
@@ -706,12 +734,14 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
           ...base,
           feedbackCode: reachedDepth ? "calibration_return" : "calibration_move",
           feedback: reachedDepth
-            ? this.exercise === "squat"
-              ? "Calibration: return to a tall standing position."
-              : "Calibration: press back to a straight top plank."
-            : this.exercise === "squat"
-              ? "Calibration: squat to a comfortable depth."
-              : "Calibration: lower with control to a comfortable depth."
+            ? this.exercise === "push-up"
+              ? "Calibration: press back to a straight top plank."
+              : "Calibration: return to a tall standing position."
+            : this.exercise === "push-up"
+              ? "Calibration: lower with control to a comfortable depth."
+              : this.exercise === "lunge"
+                ? "Calibration: lower into a comfortable forward lunge."
+                : "Calibration: squat to a comfortable depth."
         });
       }
       return this.current;
@@ -814,7 +844,12 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
     }
 
     let feedbackCode: FeedbackCode = "ready";
-    let feedback = this.exercise === "squat" ? "Stand tall, then descend slowly." : "Hold the top plank, then lower slowly.";
+    let feedback =
+      this.exercise === "push-up"
+        ? "Hold the top plank, then lower slowly."
+        : this.exercise === "lunge"
+          ? "Stand tall, step forward, then lower slowly."
+          : "Stand tall, then descend slowly.";
     const topThreshold = profile.topAngle - 9;
     const descentThreshold = profile.topAngle - Math.max(18, (profile.topAngle - profile.depthAngle) * 0.3);
     const bottomThreshold = profile.depthAngle + Math.max(14, (profile.topAngle - profile.depthAngle) * 0.12);
@@ -830,16 +865,23 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
       feedbackCode = "cooldown";
       feedback = "Rep counted. Hold steady before starting the next one.";
     } else if ((this.phase === "idle" || this.phase === "standing_ready" || this.phase === "top_ready") && isTop) {
-      this.phase = this.exercise === "squat" ? "standing_ready" : "top_ready";
+      this.phase = readyPhase(this.exercise);
       this.topStableSince ??= now;
       const stableFor = now - this.topStableSince;
       if (stableFor < stableTopMs) {
         this.repGateStatus = "waiting_for_stable_top";
         feedbackCode = "waiting_for_stable_top";
-        feedback = this.exercise === "squat" ? "Hold a stable tall stance before starting." : "Hold a stable top plank before starting.";
+        feedback = isStandingExercise(this.exercise)
+          ? "Hold a stable tall stance before starting."
+          : "Hold a stable top plank before starting.";
       } else {
         this.repGateStatus = "ready";
-        feedback = this.exercise === "squat" ? "Ready. Start a slow squat when stable." : "Ready. Lower with control when stable.";
+        feedback =
+          this.exercise === "push-up"
+            ? "Ready. Lower with control when stable."
+            : this.exercise === "lunge"
+              ? "Ready. Step forward and lower with control."
+              : "Ready. Start a slow squat when stable.";
       }
     } else if ((this.phase === "standing_ready" || this.phase === "top_ready") && isDescending) {
       if (this.repGateStatus !== "ready") {
@@ -860,7 +902,7 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
       if (now - this.bottomSince >= bottomConfirmMs) {
         this.phase = "bottom";
         feedbackCode = "bottom";
-        feedback = this.exercise === "squat" ? "Good depth. Drive up smoothly." : "Good depth. Press up smoothly.";
+        feedback = this.exercise === "push-up" ? "Good depth. Press up smoothly." : "Good depth. Drive up smoothly.";
       } else {
         feedbackCode = "incomplete_depth";
         feedback = "Hold the bottom briefly so the rep is clear.";
@@ -869,19 +911,26 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
       this.phase = "ascending";
       this.repGateStatus = "rep_in_progress";
       feedbackCode = "ascending";
-      feedback = this.exercise === "squat" ? "Ascending. Keep knees tracking steadily." : "Pressing up. Keep your body in one line.";
+      feedback =
+        this.exercise === "push-up"
+          ? "Pressing up. Keep your body in one line."
+          : this.exercise === "lunge"
+            ? "Drive through the front foot and keep the knee steady."
+            : "Ascending. Keep knees tracking steadily.";
     } else if (this.phase === "ascending" && isTop) {
       this.topStableSince ??= now;
       const repDuration = this.repStartedAt === null ? 0 : now - this.repStartedAt;
       if (now - this.topStableSince >= stableTopMs && repDuration >= minimumRepMs) {
-        this.phase = this.exercise === "squat" ? "standing_ready" : "top_ready";
+        this.phase = readyPhase(this.exercise);
         this.reps += 1;
         this.lastRepAt = now;
         this.repStartedAt = null;
         this.bottomSince = null;
         this.repGateStatus = "cooldown";
         feedbackCode = "rep_completed";
-        feedback = this.exercise === "squat" ? "Rep counted. Reset tall before the next rep." : "Rep counted. Reset in a straight top plank.";
+        feedback = isStandingExercise(this.exercise)
+          ? "Rep counted. Reset tall before the next rep."
+          : "Rep counted. Reset in a straight top plank.";
       } else {
         feedbackCode = "ascending";
         feedback = repDuration < minimumRepMs ? "Move slower so the rep can be verified." : "Hold the top briefly to finish the rep.";

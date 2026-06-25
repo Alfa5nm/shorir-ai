@@ -77,6 +77,11 @@ export function createMemoryDatabase(): Database {
       events.set(event.id, event);
       return event;
     },
+    async listPoseEvents(profileId) {
+      return [...events.values()]
+        .filter((event) => event.profileId === profileId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    },
     async saveCoachReview(review: Omit<CoachReview, "id" | "createdAt">) {
       const saved: CoachReview = { id: id("coach_review"), ...review, createdAt: now() };
       coachReviews.set(saved.id, saved);

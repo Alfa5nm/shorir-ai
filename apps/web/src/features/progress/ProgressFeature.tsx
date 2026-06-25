@@ -1,14 +1,16 @@
-import type { CoachReview, WorkoutSession } from "@shorir/contracts";
-import { Activity, Dumbbell, Loader2, Target } from "lucide-react";
+import type { CoachReview, PoseEvent, WorkoutSession } from "@shorir/contracts";
+import { Activity, Dumbbell, Loader2, ScanLine, Target } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useAppServices } from "../../app/providers";
 import { ensureProfileId } from "../../app/profileSession";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { diagnosticsBySession } from "./progressDiagnostics";
 
 export function ProgressFeature() {
   const { apiClient } = useAppServices();
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [reviews, setReviews] = useState<CoachReview[]>([]);
+  const [events, setEvents] = useState<PoseEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,13 +18,15 @@ export function ProgressFeature() {
     let active = true;
     void ensureProfileId(apiClient)
       .then(async (profileId) => {
-        const [sessionResult, reviewResult] = await Promise.all([
+        const [sessionResult, reviewResult, eventResult] = await Promise.all([
           apiClient.listSessions(profileId),
-          apiClient.listCoachReviews(profileId)
+          apiClient.listCoachReviews(profileId),
+          apiClient.listPoseEvents(profileId)
         ]);
         if (!active) return;
         setSessions(sessionResult.sort((a, b) => b.endedAt.localeCompare(a.endedAt)));
         setReviews(reviewResult);
+        setEvents(eventResult);
       })
       .catch((caught: unknown) => {
         if (active) setError(caught instanceof Error ? caught.message : "Unable to load progress.");
@@ -42,6 +46,7 @@ export function ProgressFeature() {
       : 0;
     return { reps, confidence };
   }, [sessions]);
+  const diagnostics = useMemo(() => diagnosticsBySession(events), [events]);
 
   if (isLoading) {
     return <section className="panel loading-state"><Loader2 className="spin" /> Loading progress...</section>;
@@ -85,7 +90,22 @@ export function ProgressFeature() {
                   <div>
                     <strong>{session.repsCompleted} reps</strong>
                     <span>{Math.round(session.confidenceAvg * 100)}% confidence</span>
+                    {diagnostics.get(session.id) && (
+                      <span className="session-diagnostic">
+                        <ScanLine size={14} />
+                        {diagnostics.get(session.id)!.qualityScore}% quality
+                        {diagnostics.get(session.id)!.rejectedAttempts > 0
+                          ? ` / ${diagnostics.get(session.id)!.rejectedAttempts} rejected`
+                          : ""}
+                      </span>
+                    )}
                   </div>
+                  {diagnostics.get(session.id)?.topIssues[0] && (
+                    <p className="session-list__diagnostic">
+                      Main pause: {diagnostics.get(session.id)!.topIssues[0]!.reason}.{" "}
+                      {diagnostics.get(session.id)!.nextAction}
+                    </p>
+                  )}
                 </article>
               ))}
             </div>

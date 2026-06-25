@@ -1,3 +1,5 @@
+export type LiveCoachExercise = "squat" | "push-up" | "lunge";
+
 export interface ExerciseGuide {
   id: string;
   nameEn: string;
@@ -10,8 +12,29 @@ export interface ExerciseGuide {
   commonMistakes: string[];
   safetyCues: string[];
   cameraGuidance: string[];
-  liveCoaching?: boolean;
+  liveCoachExercise?: LiveCoachExercise;
   gifUrl?: string;
+}
+
+export function exerciseGuideById(id: string | null) {
+  return id ? exerciseGuides.find((guide) => guide.id === id) ?? null : null;
+}
+
+export function liveCoachPath(guide: ExerciseGuide) {
+  if (!guide.liveCoachExercise) return null;
+  const search = new URLSearchParams({
+    exercise: guide.liveCoachExercise,
+    from: "library",
+    guide: guide.id
+  });
+  return `/coach?${search.toString()}`;
+}
+
+export function liveCoachGuideFromSearch(search: URLSearchParams) {
+  if (search.get("from") !== "library") return null;
+  const guide = exerciseGuideById(search.get("guide"));
+  const exercise = search.get("exercise");
+  return guide?.liveCoachExercise === exercise ? guide : null;
 }
 
 export const exerciseGuides: ExerciseGuide[] = [
@@ -27,7 +50,7 @@ export const exerciseGuides: ExerciseGuide[] = [
     commonMistakes: ["Heels lifting", "Rushing the bottom position", "Leaving the calibrated camera area"],
     safetyCues: ["Use a pain-free range.", "Stop if you feel sharp knee, hip, or back pain."],
     cameraGuidance: ["Use a side view.", "Place the device far enough away to show shoulders through ankles."],
-    liveCoaching: true
+    liveCoachExercise: "squat"
   },
   {
     id: "push-up",
@@ -41,7 +64,7 @@ export const exerciseGuides: ExerciseGuide[] = [
     commonMistakes: ["Hips sagging", "Hips piked too high", "Shoulders not stacked over wrists", "Shallow repetitions"],
     safetyCues: ["Use a pain-free shoulder and wrist range.", "Stop if you feel sharp pain or cannot maintain control."],
     cameraGuidance: ["Use a clear side view.", "Keep shoulder, elbow, wrist, hip, and ankle visible."],
-    liveCoaching: true
+    liveCoachExercise: "push-up"
   },
   {
     id: "lunge",
@@ -54,8 +77,8 @@ export const exerciseGuides: ExerciseGuide[] = [
     movementSteps: ["Step forward and lower under control.", "Push through the front foot to return."],
     commonMistakes: ["Narrow stance", "Uncontrolled front knee", "Rushing the return"],
     safetyCues: ["Use support if balance is uncertain.", "Stop if the movement causes pain."],
-    cameraGuidance: ["A side or slight front angle can show both legs."],
-    liveCoaching: false
+    cameraGuidance: ["Use a side view and keep both feet plus the full body visible."],
+    liveCoachExercise: "lunge"
   },
   {
     "id": "0289",
@@ -353,6 +376,7 @@ export const exerciseGuides: ExerciseGuide[] = [
     "commonMistakes": [],
     "safetyCues": [],
     "cameraGuidance": [],
+    "liveCoachExercise": "push-up",
     "gifUrl": "videos/0662-I4hDWkc.gif"
   },
   {

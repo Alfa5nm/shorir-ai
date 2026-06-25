@@ -1,13 +1,14 @@
-import type { CoachReview, PhoneCameraSession, WorkoutSession } from "@shorir/contracts";
-import { Camera, CircleStop, Loader2, RefreshCw, Save, ScanLine, ShieldAlert, Smartphone, Wifi } from "lucide-react";
+import type { CoachReview, LanguagePreference, PhoneCameraSession, WorkoutSession } from "@shorir/contracts";
+import { Activity, ArrowLeft, BookOpen, Camera, CircleStop, Loader2, RefreshCw, Save, ScanLine, ShieldAlert, Smartphone, Target, Wifi } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useAppServices } from "../../app/providers";
 import { ensureProfileId as ensureBrowserProfileId } from "../../app/profileSession";
 import type { PoseFrame } from "../../ports/poseEstimator";
 import { phoneCameraRtcConfiguration, serializeCandidate, serializeDescription } from "../phone-camera/webrtc";
+import { liveCoachGuideFromSearch } from "../exercise-library/exerciseGuides";
 import { AnimatedExerciseCoach } from "./AnimatedExerciseCoach";
 import { defaultCameraGeometry, resolveCameraGeometry, type CameraGeometry } from "./cameraGeometry";
 import {
@@ -17,6 +18,11 @@ import {
   type NormalizedBox,
   type SupportedExercise
 } from "./exerciseAnalyzer";
+import {
+  createSessionDiagnosticsTracker,
+  type SessionDiagnosticsSummary
+} from "./sessionDiagnostics";
+import { localizedCoachFeedback } from "./coachingLanguage";
 
 type CameraMode = "local" | "phone" | null;
 type PoseSource = HTMLVideoElement;
@@ -35,6 +41,10 @@ const poseConnections = [
   ["left_shoulder", "right_shoulder"],
   ["left_hip", "right_hip"]
 ] as const;
+
+function requestedSupportedExercise(value: string | null): SupportedExercise {
+  return value === "push-up" || value === "lunge" ? value : "squat";
+}
 
 function landmarkByName(frame: PoseFrame, name: string) {
   return frame.landmarks.find((landmark) => landmark.name === name) ?? null;
@@ -102,7 +112,8 @@ export function PoseCoachFeature() {
   const { apiClient, poseEstimator } = useAppServices();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedExercise = searchParams.get("exercise");
-  const initialExercise: SupportedExercise = requestedExercise === "push-up" ? "push-up" : "squat";
+  const initialExercise = requestedSupportedExercise(requestedExercise);
+  const sourceGuide = liveCoachGuideFromSearch(searchParams);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const activeSourceRef = useRef<PoseSource | null>(null);
@@ -117,6 +128,7 @@ export function PoseCoachFeature() {
   const selectedExerciseRef = useRef<SupportedExercise>(initialExercise);
   const analyzerRef = useRef(createExerciseAnalyzer(initialExercise));
   const confidenceSamplesRef = useRef<number[]>([]);
+  const diagnosticsRef = useRef(createSessionDiagnosticsTracker());
   const startedAtRef = useRef<Date | null>(null);
   const profileIdRef = useRef<string | null>(null);
   const [metrics, setMetrics] = useState<AnalyzerSnapshot>(() => analyzerRef.current.snapshot());
@@ -130,6 +142,9 @@ export function PoseCoachFeature() {
   const [error, setError] = useState<string | null>(null);
   const [savedSession, setSavedSession] = useState<WorkoutSession | null>(null);
   const [coachReview, setCoachReview] = useState<CoachReview | null>(null);
+  const [sessionDiagnostics, setSessionDiagnostics] = useState<SessionDiagnosticsSummary | null>(null);
+  const [coachLanguage, setCoachLanguage] = useState<LanguagePreference>("mixed");
+  const activeSourceGuide = sourceGuide?.liveCoachExercise === selectedExercise ? sourceGuide : null;
 
   const statusTone = useMemo(() => {
     if (error) {
@@ -153,9 +168,12 @@ export function PoseCoachFeature() {
       return metrics.calibrationProfile.region;
     }
     if (metrics.calibrationPhase === "standing" || metrics.calibrationPhase === "depth") {
-      return selectedExercise === "squat"
-        ? { x: 0.16, y: 0.05, width: 0.68, height: 0.9 }
-        : { x: 0.05, y: 0.16, width: 0.9, height: 0.68 };
+      if (selectedExercise === "push-up") {
+        return { x: 0.05, y: 0.16, width: 0.9, height: 0.68 };
+      }
+      return selectedExercise === "lunge"
+        ? { x: 0.08, y: 0.05, width: 0.84, height: 0.9 }
+        : { x: 0.16, y: 0.05, width: 0.68, height: 0.9 };
     }
     return null;
   }, [metrics.calibrationPhase, metrics.calibrationProfile, selectedExercise]);
@@ -184,6 +202,22 @@ export function PoseCoachFeature() {
     };
   }, [syncCameraGeometry]);
 
+  useEffect(() => {
+    let active = true;
+    void ensureBrowserProfileId(apiClient)
+      .then(async (profileId) => {
+        profileIdRef.current = profileId;
+        const profile = await apiClient.getProfile(profileId);
+        if (active && profile) setCoachLanguage(profile.language);
+      })
+      .catch(() => {
+        if (active) setCoachLanguage("mixed");
+      });
+    return () => {
+      active = false;
+    };
+  }, [apiClient]);
+
   const selectExercise = useCallback((exercise: SupportedExercise) => {
     selectedExerciseRef.current = exercise;
     setSelectedExercise(exercise);
@@ -191,13 +225,14 @@ export function PoseCoachFeature() {
     setMetrics(analyzerRef.current.snapshot());
     setSavedSession(null);
     setCoachReview(null);
+    setSessionDiagnostics(null);
     setError(null);
     setSearchParams({ exercise }, { replace: true });
   }, [setSearchParams]);
 
   useEffect(() => {
     if (isBusy || isTracking || phoneSession) return;
-    const exercise: SupportedExercise = requestedExercise === "push-up" ? "push-up" : "squat";
+    const exercise = requestedSupportedExercise(requestedExercise);
     if (exercise === selectedExerciseRef.current) return;
     selectedExerciseRef.current = exercise;
     setSelectedExercise(exercise);
@@ -205,22 +240,27 @@ export function PoseCoachFeature() {
     setMetrics(analyzerRef.current.snapshot());
     setSavedSession(null);
     setCoachReview(null);
+    setSessionDiagnostics(null);
     setError(null);
   }, [isBusy, isTracking, phoneSession, requestedExercise]);
 
   const resetSessionState = useCallback(() => {
     confidenceSamplesRef.current = [];
+    diagnosticsRef.current.reset();
     startedAtRef.current = new Date();
     setSavedSession(null);
     setCoachReview(null);
+    setSessionDiagnostics(null);
     const reset = analyzerRef.current.reset();
     setMetrics({ ...reset, feedback: exerciseDefinitions[selectedExerciseRef.current].activeFeedback });
   }, []);
 
   const beginCalibration = useCallback(() => {
     confidenceSamplesRef.current = [];
+    diagnosticsRef.current.reset();
     setSavedSession(null);
     setCoachReview(null);
+    setSessionDiagnostics(null);
     setMetrics(analyzerRef.current.beginCalibration());
   }, []);
 
@@ -249,6 +289,7 @@ export function PoseCoachFeature() {
   const handlePose = useCallback((frame: PoseFrame) => {
     drawPose(canvasRef.current, activeSourceRef.current, frame);
     const snapshot = analyzerRef.current.process(frame);
+    diagnosticsRef.current.record(snapshot);
     confidenceSamplesRef.current.push(snapshot.confidence);
     if (confidenceSamplesRef.current.length > 900) {
       confidenceSamplesRef.current.shift();
@@ -521,6 +562,7 @@ export function PoseCoachFeature() {
       const confidenceAvg =
         samples.length > 0 ? samples.reduce((total, sample) => total + sample, 0) / samples.length : 0;
       const finalSnapshot = analyzerRef.current.snapshot();
+      const diagnostics = diagnosticsRef.current.summary();
       const session = await apiClient.saveWorkoutSession({
         profileId,
         exercise: selectedExerciseRef.current,
@@ -533,6 +575,7 @@ export function PoseCoachFeature() {
         endedAt: endedAt.toISOString()
       });
       setSavedSession(session);
+      setSessionDiagnostics(diagnostics);
 
       await apiClient.savePoseEvent({
         profileId,
@@ -542,7 +585,8 @@ export function PoseCoachFeature() {
         metadata: {
           exercise: selectedExerciseRef.current,
           repsCompleted: finalSnapshot.reps,
-          durationSeconds
+          durationSeconds,
+          diagnostics
         }
       });
 
@@ -568,8 +612,34 @@ export function PoseCoachFeature() {
         </p>
       </div>
 
+      {activeSourceGuide && (
+        <section className="coach-guide-context" aria-labelledby="coach-guide-context-title">
+          <div className="coach-guide-context__heading">
+            <BookOpen size={21} aria-hidden="true" />
+            <div>
+              <span>Practice from exercise library</span>
+              <h2 id="coach-guide-context-title">{activeSourceGuide.nameEn}</h2>
+            </div>
+            <Link to={`/exercise-library?guide=${encodeURIComponent(activeSourceGuide.id)}`}>
+              <ArrowLeft size={17} aria-hidden="true" />
+              Back to guide
+            </Link>
+          </div>
+          <div className="coach-guide-context__cues">
+            <div>
+              <strong>Set up</strong>
+              <span>{activeSourceGuide.setupSteps[0]}</span>
+            </div>
+            <div>
+              <strong>Camera</strong>
+              <span>{activeSourceGuide.cameraGuidance[0] ?? "Use a clear side view with the full movement visible."}</span>
+            </div>
+          </div>
+        </section>
+      )}
+
       <div className="exercise-selector" aria-label="Choose an exercise">
-        {(["squat", "push-up"] as const).map((exercise) => (
+        {(["squat", "push-up", "lunge"] as const).map((exercise) => (
           <button
             key={exercise}
             type="button"
@@ -578,7 +648,13 @@ export function PoseCoachFeature() {
             disabled={isBusy || isTracking || Boolean(phoneSession)}
           >
             <strong>{exerciseDefinitions[exercise].name}</strong>
-            <span>{exercise === "squat" ? "Standing lower-body coaching" : "Side-view floor coaching"}</span>
+            <span>
+              {exercise === "squat"
+                ? "Standing lower-body coaching"
+                : exercise === "lunge"
+                  ? "Split-stance lower-body coaching"
+                  : "Side-view floor coaching"}
+            </span>
           </button>
         ))}
       </div>
@@ -633,6 +709,7 @@ export function PoseCoachFeature() {
             confidence={metrics.confidence}
             primaryAngle={metrics.primaryAngle}
             isTracking={isTracking}
+            language={coachLanguage}
           />
           <div className="metric-tile">
             <span>Reps</span>
@@ -677,7 +754,7 @@ export function PoseCoachFeature() {
 
           <div className="coach-feedback">
             <ShieldAlert size={20} aria-hidden="true" />
-            <p>{metrics.feedback}</p>
+            <p>{localizedCoachFeedback(metrics.feedbackCode, metrics.feedback, coachLanguage)}</p>
           </div>
 
           <div className="pose-actions">
@@ -765,6 +842,61 @@ export function PoseCoachFeature() {
             </div>
           </div>
         </div>
+      )}
+      {sessionDiagnostics && (
+        <section className="diagnostics-panel" aria-labelledby="session-diagnostics-title">
+          <div className="diagnostics-panel__heading">
+            <div>
+              <StatusPill tone={sessionDiagnostics.qualityScore >= 75 ? "success" : "warning"}>
+                Session quality {sessionDiagnostics.qualityScore}%
+              </StatusPill>
+              <h2 id="session-diagnostics-title">What the detector accepted and rejected</h2>
+            </div>
+            <Target size={28} aria-hidden="true" />
+          </div>
+          <div className="diagnostics-panel__metrics">
+            <article>
+              <Activity size={19} aria-hidden="true" />
+              <span>Counted reps</span>
+              <strong>{sessionDiagnostics.countedReps}</strong>
+            </article>
+            <article>
+              <ShieldAlert size={19} aria-hidden="true" />
+              <span>Rejected attempts</span>
+              <strong>{sessionDiagnostics.rejectedAttempts}</strong>
+            </article>
+            <article>
+              <ScanLine size={19} aria-hidden="true" />
+              <span>Tracking accepted</span>
+              <strong>
+                {sessionDiagnostics.totalFrames > 0
+                  ? Math.round((sessionDiagnostics.readyFrames / sessionDiagnostics.totalFrames) * 100)
+                  : 0}%
+              </strong>
+            </article>
+          </div>
+          <div className="diagnostics-panel__details">
+            <div>
+              <h3>Most common pauses</h3>
+              {sessionDiagnostics.topIssues.length > 0 ? (
+                <ol>
+                  {sessionDiagnostics.topIssues.map((issue) => (
+                    <li key={issue.reason}>
+                      <span>{issue.reason}</span>
+                      <strong>{issue.count}</strong>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p>No recurring tracking problems were detected.</p>
+              )}
+            </div>
+            <div>
+              <h3>Next setup adjustment</h3>
+              <p>{sessionDiagnostics.nextAction}</p>
+            </div>
+          </div>
+        </section>
       )}
     </section>
   );

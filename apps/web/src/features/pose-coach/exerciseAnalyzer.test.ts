@@ -99,6 +99,20 @@ function squatFrame(kneeX: number, kneeY: number) {
   ]);
 }
 
+function lungeFrame(kneeX: number, kneeY: number) {
+  const source = squatFrame(kneeX, kneeY);
+  return {
+    ...source,
+    landmarks: source.landmarks.map((point) => {
+      if (point.name === "right_shoulder") return { ...point, x: 0.43, y: 0.2, confidence: 0.99 };
+      if (point.name === "right_hip") return { ...point, x: 0.44, y: 0.43, confidence: 0.99 };
+      if (point.name === "right_knee") return { ...point, x: 0.38, y: 0.67, confidence: 0.99 };
+      if (point.name === "right_ankle") return { ...point, x: 0.31, y: 0.86, confidence: 0.99 };
+      return point;
+    })
+  };
+}
+
 function calibratePushUp() {
   const analyzer = createExerciseAnalyzer("push-up");
   analyzer.beginCalibration();
@@ -160,6 +174,31 @@ function completeSquatRep(analyzer: ReturnType<typeof createExerciseAnalyzer>) {
   let snapshot = analyzer.snapshot();
   for (let index = 0; index < 10; index += 1) {
     snapshot = analyzer.process(next(squatFrame(0.49, 0.65), 180));
+    if (snapshot.reps === targetReps) return snapshot;
+  }
+  return snapshot;
+}
+
+function calibrateLunge() {
+  const analyzer = createExerciseAnalyzer("lunge");
+  analyzer.beginCalibration();
+  for (let index = 0; index < 14; index += 1) analyzer.process(next(lungeFrame(0.49, 0.65)));
+  analyzer.process(next(lungeFrame(0.58, 0.66), 180));
+  analyzer.process(next(lungeFrame(0.68, 0.65), 220));
+  const calibrated = analyzer.process(next(lungeFrame(0.49, 0.65), 260));
+  expect(calibrated.calibrationPhase).toBe("complete");
+  return analyzer;
+}
+
+function completeLungeRep(analyzer: ReturnType<typeof createExerciseAnalyzer>) {
+  const targetReps = analyzer.snapshot().reps + 1;
+  for (let index = 0; index < 5; index += 1) analyzer.process(next(lungeFrame(0.49, 0.65), 140));
+  for (let index = 0; index < 4; index += 1) analyzer.process(next(lungeFrame(0.58, 0.66), 180));
+  for (let index = 0; index < 4; index += 1) analyzer.process(next(lungeFrame(0.68, 0.65), 180));
+  for (let index = 0; index < 4; index += 1) analyzer.process(next(lungeFrame(0.58, 0.66), 180));
+  let snapshot = analyzer.snapshot();
+  for (let index = 0; index < 10; index += 1) {
+    snapshot = analyzer.process(next(lungeFrame(0.49, 0.65), 180));
     if (snapshot.reps === targetReps) return snapshot;
   }
   return snapshot;
@@ -339,5 +378,26 @@ describe("squat analyzer", () => {
     for (let index = 0; index < 8; index += 1) analyzer.process(next(squatFrame(0.66, 0.65), 180));
     for (let index = 0; index < 8; index += 1) analyzer.process(next(squatFrame(0.49, 0.65), 180));
     expect(analyzer.snapshot().reps).toBe(0);
+  });
+});
+
+describe("lunge analyzer", () => {
+  it("calibrates and counts a controlled lunge once", () => {
+    const analyzer = calibrateLunge();
+    expect(completeLungeRep(analyzer).reps).toBe(1);
+  });
+
+  it("rejects a shallow lunge", () => {
+    const analyzer = calibrateLunge();
+    for (let index = 0; index < 5; index += 1) analyzer.process(next(lungeFrame(0.49, 0.65), 140));
+    for (let index = 0; index < 3; index += 1) analyzer.process(next(lungeFrame(0.57, 0.66), 180));
+    expect(analyzer.process(next(lungeFrame(0.49, 0.65), 180)).reps).toBe(0);
+  });
+
+  it("pauses when either leg leaves tracking", () => {
+    const analyzer = calibrateLunge();
+    const missingRearAnkle = lungeFrame(0.49, 0.65);
+    missingRearAnkle.landmarks = missingRearAnkle.landmarks.filter((point) => point.name !== "right_ankle");
+    expect(analyzer.process(next(missingRearAnkle)).feedbackCode).toBe("low_confidence");
   });
 });

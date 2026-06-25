@@ -29,6 +29,7 @@ export interface ApiClient {
   saveWorkoutSession(input: WorkoutSessionInput): Promise<WorkoutSession>;
   listSessions(profileId: string): Promise<WorkoutSession[]>;
   savePoseEvent(input: PoseEventInput): Promise<PoseEvent>;
+  listPoseEvents(profileId: string): Promise<PoseEvent[]>;
   createCoachReview(input: CoachReviewInput): Promise<CoachReview>;
   listCoachReviews(profileId: string): Promise<CoachReview[]>;
   createImageSession(input: ImageSessionInput): Promise<ImageSession>;

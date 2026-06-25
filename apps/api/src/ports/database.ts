@@ -18,6 +18,7 @@ export interface Database {
   saveWorkoutSession(input: WorkoutSessionInput): Promise<WorkoutSession>;
   listSessions(profileId: string): Promise<WorkoutSession[]>;
   savePoseEvent(input: PoseEventInput): Promise<PoseEvent>;
+  listPoseEvents(profileId: string): Promise<PoseEvent[]>;
   saveCoachReview(review: Omit<CoachReview, "id" | "createdAt">): Promise<CoachReview>;
   listCoachReviews(profileId: string): Promise<CoachReview[]>;
   createImageSession(profileId: string): Promise<ImageSession>;

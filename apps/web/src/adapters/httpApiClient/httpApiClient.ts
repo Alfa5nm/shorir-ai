@@ -33,6 +33,8 @@ export function createHttpApiClient({ baseUrl }: HttpApiClientOptions): ApiClien
     listSessions: (profileId) => request(baseUrl, `/api/sessions?profileId=${encodeURIComponent(profileId)}`),
     savePoseEvent: (input) =>
       request(baseUrl, "/api/events", { method: "POST", body: JSON.stringify(input) }),
+    listPoseEvents: (profileId) =>
+      request(baseUrl, `/api/events?profileId=${encodeURIComponent(profileId)}`),
     createCoachReview: (input) =>
       request(baseUrl, "/api/coach-review", { method: "POST", body: JSON.stringify(input) }),
     listCoachReviews: (profileId) =>

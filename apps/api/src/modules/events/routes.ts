@@ -14,5 +14,14 @@ export function createEventsRouter({ database }: ModuleDependencies): ExpressRou
     })
   );
 
+  router.get(
+    "/",
+    asyncHandler(async (req, res) => {
+      const profileId = typeof req.query.profileId === "string" ? req.query.profileId : "";
+      const events = await database.listPoseEvents(profileId);
+      res.json(events);
+    })
+  );
+
   return router;
 }

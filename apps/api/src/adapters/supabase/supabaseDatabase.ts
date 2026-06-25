@@ -317,6 +317,16 @@ export function createSupabaseDatabase(client?: SupabaseClient): Database {
       throwIfError(error);
       return mapPoseEvent(data as PoseEventRow);
     },
+    async listPoseEvents(profileId) {
+      const { data, error } = await supabase
+        .from("pose_events")
+        .select("*")
+        .eq("profile_id", profileId)
+        .order("created_at", { ascending: false });
+
+      throwIfError(error);
+      return (data ?? []).map((row) => mapPoseEvent(row as PoseEventRow));
+    },
     async saveCoachReview(review: Omit<CoachReview, "id" | "createdAt">) {
       const { data, error } = await supabase
         .from("coach_reviews")
