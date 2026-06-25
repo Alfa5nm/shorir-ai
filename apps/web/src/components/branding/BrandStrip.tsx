@@ -4,7 +4,7 @@ export function BrandStrip() {
   return (
     <div className="brand-strip">
       <Link className="product-mark" to="/">
-        <span className="product-mark__icon">S</span>
+        <img className="product-mark__logo" src="/images/logo_nobg.png" alt="" aria-hidden="true" />
         <span>
           <strong>SHORIR AI</strong>
           <small>Team El Bracino</small>

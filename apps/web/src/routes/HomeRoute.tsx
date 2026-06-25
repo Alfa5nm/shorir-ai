@@ -17,6 +17,7 @@ export function HomeRoute() {
   return (
     <section className="hero">
       <StatusPill tone={health === "connected" ? "success" : "warning"}>API {health}</StatusPill>
+      <img className="hero__logo" src="/images/logo_nobg.png" alt="SHORIR AI" />
       <h1>{content.title}</h1>
       <p>{content.tagline}</p>
       <div className="hero-actions">
