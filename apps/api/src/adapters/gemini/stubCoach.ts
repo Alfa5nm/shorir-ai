@@ -9,8 +9,11 @@ export function createStubCoach(): AICoach {
         sessionId: session.id,
         summaryBn: "আপনার সেশন সংরক্ষণ হয়েছে। পরের ধাপে ফর্ম স্থির রাখার দিকে মন দিন।",
         summaryEn: "Your session was saved. Next, focus on steady form and controlled tempo.",
-        nextAction: "Repeat one short squat set after reviewing your stance.",
-        formFocus: ["Controlled tempo", "Stable stance", "Confidence-aware feedback"],
+        nextAction: `Repeat one short ${session.exercise} set after reviewing your setup.`,
+        formFocus:
+          session.exercise === "push-up"
+            ? ["Straight plank", "Controlled depth", "Shoulders over wrists"]
+            : ["Controlled tempo", "Stable stance", "Confidence-aware feedback"],
         safetyNote: session.safetyFlag
           ? "Pain or safety concern was reported. Stop and consult a qualified professional if needed."
           : "No safety flag was reported in this scaffold session.",

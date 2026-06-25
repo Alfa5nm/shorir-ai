@@ -4,10 +4,11 @@
   "private": true,
   "description": "SHORIR AI CodeFront final-round monorepo scaffold.",
   "scripts": {
-    "dev": "pnpm --parallel dev",
+    "dev": "pnpm -r --parallel --filter @shorir/api --filter @shorir/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
     "api:dev": "pnpm --filter @shorir/api dev",
     "web:dev": "pnpm --filter @shorir/web dev",
     "supabase": "supabase",

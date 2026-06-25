@@ -1,8 +1,13 @@
 import { Camera, Loader2, Wifi } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useAppServices } from "../../app/providers";
+import {
+  defaultCameraGeometry,
+  resolveCameraGeometry,
+  type CameraGeometry
+} from "../pose-coach/cameraGeometry";
 import { phoneCameraRtcConfiguration, serializeCandidate, serializeDescription } from "./webrtc";
 
 export function PhoneCameraFeature() {
@@ -17,8 +22,31 @@ export function PhoneCameraFeature() {
   const offerSdpRef = useRef<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
+  const [cameraGeometry, setCameraGeometry] = useState<CameraGeometry>(defaultCameraGeometry);
   const [status, setStatus] = useState("Open this page on your phone and start camera sharing.");
   const [error, setError] = useState<string | null>(null);
+
+  const syncCameraGeometry = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || video.videoWidth <= 0 || video.videoHeight <= 0) return;
+    const nextGeometry = resolveCameraGeometry(video.videoWidth, video.videoHeight);
+    setCameraGeometry((current) =>
+      current.width === nextGeometry.width && current.height === nextGeometry.height
+        ? current
+        : nextGeometry
+    );
+  }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.addEventListener("loadedmetadata", syncCameraGeometry);
+    video.addEventListener("resize", syncCameraGeometry);
+    return () => {
+      video.removeEventListener("loadedmetadata", syncCameraGeometry);
+      video.removeEventListener("resize", syncCameraGeometry);
+    };
+  }, [syncCameraGeometry]);
 
   useEffect(
     () => () => {
@@ -51,6 +79,7 @@ export function PhoneCameraFeature() {
       }
       video.srcObject = stream;
       await video.play();
+      syncCameraGeometry();
 
       const peer = new RTCPeerConnection(phoneCameraRtcConfiguration());
       peerRef.current = peer;
@@ -124,7 +153,20 @@ export function PhoneCameraFeature() {
       <h1>Phone camera</h1>
       <p>{status}</p>
 
-      <div className="phone-camera-preview">
+      <div
+        className={`phone-camera-preview phone-camera-preview--${cameraGeometry.orientation}${
+          isStreaming ? " phone-camera-preview--active" : ""
+        }`}
+        style={{
+          aspectRatio: `${cameraGeometry.width} / ${cameraGeometry.height}`,
+          maxWidth:
+            cameraGeometry.orientation === "portrait"
+              ? `min(100%, calc(68vh * ${cameraGeometry.aspectRatio}))`
+              : "100%"
+        }}
+        data-camera-width={cameraGeometry.width}
+        data-camera-height={cameraGeometry.height}
+      >
         <video ref={videoRef} autoPlay playsInline muted />
         {!isStreaming && (
           <div className="phone-camera-preview__empty">

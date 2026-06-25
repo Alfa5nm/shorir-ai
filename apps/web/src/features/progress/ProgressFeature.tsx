@@ -68,7 +68,7 @@ export function ProgressFeature() {
       {sessions.length === 0 ? (
         <div className="empty-state">
           <h2>Complete your first coached session</h2>
-          <p>Calibrate the camera, perform a squat, and select End and review.</p>
+          <p>Choose an exercise, calibrate the camera, complete a controlled set, and select End and review.</p>
           <a href="/coach">Open pose coach</a>
         </div>
       ) : (

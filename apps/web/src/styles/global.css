@@ -219,6 +219,44 @@ a {
   line-height: 1.6;
 }
 
+.exercise-selector {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  max-width: 760px;
+}
+
+.exercise-selector button {
+  display: grid;
+  gap: 5px;
+  padding: 15px 16px;
+  border: 1px solid rgba(255, 248, 234, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 248, 234, 0.05);
+  color: #fff8ea;
+  cursor: pointer;
+  text-align: left;
+}
+
+.exercise-selector button.is-active {
+  border-color: rgba(0, 210, 255, 0.78);
+  background: rgba(0, 210, 255, 0.13);
+}
+
+.exercise-selector button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.exercise-selector strong {
+  font-size: 1rem;
+}
+
+.exercise-selector span {
+  color: rgba(255, 248, 234, 0.64);
+  font-size: 0.84rem;
+}
+
 .pose-coach__workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
@@ -229,11 +267,17 @@ a {
 .pose-stage {
   position: relative;
   overflow: hidden;
+  justify-self: center;
+  width: 100%;
   min-height: 320px;
   aspect-ratio: 16 / 9;
   border: 1px solid rgba(255, 248, 234, 0.14);
   border-radius: 8px;
   background: #050914;
+}
+
+.pose-stage--active {
+  min-height: 0;
 }
 
 .pose-stage__video,
@@ -247,7 +291,7 @@ a {
 
 .pose-stage__video,
 .pose-stage__canvas {
-  object-fit: cover;
+  object-fit: contain;
   transform: scaleX(-1);
 }
 
@@ -607,9 +651,9 @@ a {
 .phone-camera-preview {
   position: relative;
   overflow: hidden;
+  justify-self: center;
   width: 100%;
   aspect-ratio: 3 / 4;
-  max-height: 68vh;
   border: 1px solid rgba(255, 248, 234, 0.14);
   border-radius: 8px;
   background: #050914;
@@ -624,7 +668,7 @@ a {
 }
 
 .phone-camera-preview video {
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .phone-camera-preview__empty {
@@ -714,6 +758,73 @@ a {
   display: grid;
   gap: 16px;
   max-width: 960px;
+}
+
+.exercise-guide-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.exercise-guide-card {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid rgba(255, 248, 234, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 248, 234, 0.05);
+}
+
+.exercise-guide-card__heading {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.exercise-guide-card__heading h2,
+.exercise-guide-card__heading p,
+.exercise-guide-card__content h3 {
+  margin: 0;
+}
+
+.exercise-guide-card__heading p {
+  margin-top: 4px;
+  color: rgba(255, 248, 234, 0.66);
+}
+
+.exercise-guide-card__content {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.exercise-guide-card__content section {
+  padding: 14px;
+  border: 1px solid rgba(255, 248, 234, 0.09);
+  border-radius: 6px;
+  background: rgba(5, 9, 20, 0.34);
+}
+
+.exercise-guide-card__content ul {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  color: rgba(255, 248, 234, 0.72);
+  line-height: 1.5;
+}
+
+.exercise-guide-card__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 7px;
+  background: #00a7c4;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
 }
 
 .form-section {
@@ -1054,6 +1165,14 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .pose-stage {
+    min-height: 240px;
+  }
+
+  .pose-stage--active {
+    min-height: 0;
+  }
+
   .pose-actions {
     grid-template-columns: 1fr;
   }
@@ -1074,8 +1193,19 @@ a {
   .meal-workspace,
   .meal-result__grid,
   .progress-metrics,
-  .progress-columns {
+  .progress-columns,
+  .exercise-selector,
+  .exercise-guide-card__content {
     grid-template-columns: 1fr;
+  }
+
+  .exercise-guide-card__heading {
+    grid-template-columns: auto 1fr;
+  }
+
+  .exercise-guide-card__heading .status-pill {
+    grid-column: 1 / -1;
+    width: fit-content;
   }
 
   .choice-grid--days {

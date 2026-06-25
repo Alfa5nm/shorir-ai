@@ -10,6 +10,7 @@
     "typecheck": "tsc -b --noEmit",
     "prelint": "pnpm --filter @shorir/contracts build && pnpm --filter @shorir/content build",
     "lint": "tsc -b --noEmit",
+    "test": "vitest run",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@types/react": "^19.0.2",
-    "@types/react-dom": "^19.0.2"
+    "@types/react-dom": "^19.0.2",
+    "vitest": "3.2.4"
   }
 }
