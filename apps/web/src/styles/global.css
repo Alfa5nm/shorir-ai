@@ -1880,3 +1880,822 @@ a {
     justify-content: flex-start;
   }
 }
+
+/* 2026 release design system */
+:root {
+  color: #172033;
+  background: #f5f8fc;
+  --bg: #f5f8fc;
+  --surface: #ffffff;
+  --surface-subtle: #f8fafc;
+  --surface-raised: #ffffff;
+  --text: #172033;
+  --text-muted: #68758a;
+  --text-soft: #8792a5;
+  --border: #dbe3ee;
+  --border-strong: #bdc9d9;
+  --accent: #1467d8;
+  --accent-strong: #0c4da8;
+  --accent-soft: #e9f2ff;
+  --success: #147a55;
+  --success-soft: #e7f6ef;
+  --warning: #9a6300;
+  --warning-soft: #fff5d9;
+  --danger: #bd3e4b;
+  --danger-soft: #ffeaed;
+  --camera: #09111e;
+  --shadow: 0 12px 32px rgba(30, 55, 90, 0.07);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+:root[data-theme="dark"] {
+  color: #eaf0f8;
+  background: #0d1420;
+  --bg: #0d1420;
+  --surface: #131d2b;
+  --surface-subtle: #101925;
+  --surface-raised: #172333;
+  --text: #eaf0f8;
+  --text-muted: #a6b2c3;
+  --text-soft: #7e8ba0;
+  --border: #29374a;
+  --border-strong: #3b4b61;
+  --accent: #6aa8ff;
+  --accent-strong: #9bc5ff;
+  --accent-soft: #142b49;
+  --success: #6dd4ac;
+  --success-soft: #11372d;
+  --warning: #f1c66b;
+  --warning-soft: #352b16;
+  --danger: #ff9aa6;
+  --danger-soft: #3c1c24;
+  --camera: #070c13;
+  --shadow: 0 16px 38px rgba(0, 0, 0, 0.22);
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  color: var(--text);
+  background: var(--bg);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  outline-offset: 2px;
+}
+
+.app-shell {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.brand-strip,
+.navigation-row,
+.page-shell,
+.site-footer {
+  width: min(1240px, calc(100% - 40px));
+  margin-inline: auto;
+}
+
+.brand-strip {
+  min-height: 66px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.product-mark {
+  gap: 11px;
+  color: var(--text);
+}
+
+.product-mark__logo {
+  width: 38px;
+  height: 38px;
+  filter: none;
+}
+
+.product-mark strong {
+  display: block;
+  font-size: 0.96rem;
+  letter-spacing: 0;
+}
+
+.product-mark small {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.event-marks {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.event-mark {
+  display: grid;
+  place-items: center;
+  height: 34px;
+  padding: 4px 7px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: #ffffff;
+}
+
+.event-mark img {
+  display: block;
+  max-width: 100%;
+  max-height: 25px;
+  object-fit: contain;
+}
+
+.event-mark--mindsparks {
+  width: 66px;
+}
+
+.event-mark--mindsparks img {
+  width: 100px;
+  max-width: none;
+  transform: translateY(1px);
+}
+
+.event-mark--codefront {
+  width: 82px;
+  background: #050505;
+}
+
+.event-mark--idc {
+  width: 44px;
+}
+
+.event-mark--idc img {
+  width: 38px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.navigation-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.site-nav {
+  flex: 1;
+  gap: 2px;
+  padding: 8px 0;
+  margin: 0;
+  scrollbar-width: none;
+}
+
+.site-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.site-nav a:hover {
+  color: var(--text);
+  background: var(--surface-subtle);
+}
+
+.site-nav a.active {
+  border-color: var(--border);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.theme-toggle,
+.icon-button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.theme-toggle:hover,
+.icon-button:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
+}
+
+.page-shell {
+  min-height: calc(100vh - 220px);
+  padding: 38px 0 64px;
+}
+
+.site-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 26px 0 38px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.site-footer span {
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.site-footer p {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+}
+
+.site-footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--accent-strong);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.hero,
+.panel,
+.card,
+.report-section,
+.metric-tile,
+.coach-feedback,
+.session-summary,
+.review-panel,
+.diagnostics-panel,
+.daily-plan-summary article,
+.daily-plan-list article,
+.diet-summary article,
+.diet-meal,
+.diet-food,
+.exercise-guide-list__item,
+.exercise-guide-card,
+.exercise-guide-card__content section,
+.form-section,
+.meal-upload,
+.meal-qr,
+.meal-result,
+.empty-state,
+.phone-upload-page,
+.progress-metrics article,
+.session-list article,
+.review-list article,
+.calibration-readout,
+.lunge-balance,
+.coach-guide-context,
+.phone-connect-panel {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.hero,
+.panel {
+  padding: clamp(24px, 4vw, 46px);
+}
+
+.hero h1,
+.panel h1,
+.feature-header h1,
+.pose-coach__header h1,
+.daily-dashboard__header h1 {
+  color: var(--text);
+  font-size: clamp(2rem, 4vw, 3.35rem);
+  line-height: 1.02;
+}
+
+.hero p,
+.panel p,
+.feature-header p,
+.pose-coach__header p,
+.daily-dashboard__header p,
+.muted-copy {
+  color: var(--text-muted);
+}
+
+.feature-header {
+  display: grid;
+  gap: 10px;
+  max-width: 760px;
+}
+
+.feature-header h1,
+.feature-header p {
+  margin: 0;
+}
+
+.status-pill {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-subtle);
+}
+
+.status-pill--success {
+  border-color: color-mix(in srgb, var(--success) 25%, var(--border));
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.status-pill--warning {
+  border-color: color-mix(in srgb, var(--warning) 25%, var(--border));
+  color: var(--warning);
+  background: var(--warning-soft);
+}
+
+.daily-dashboard__header {
+  min-height: 190px;
+  align-items: center;
+  padding: clamp(26px, 5vw, 56px);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.daily-dashboard__header > div {
+  max-width: 790px;
+}
+
+.daily-dashboard__header img {
+  width: 128px;
+  height: 128px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+}
+
+.daily-plan-summary,
+.diet-summary,
+.progress-metrics {
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--border);
+}
+
+.daily-plan-summary article,
+.diet-summary article,
+.progress-metrics article {
+  border: 0;
+  border-radius: 0;
+}
+
+.daily-plan-summary svg,
+.diet-summary svg,
+.progress-metrics svg,
+.diagnostics-panel__metrics svg {
+  color: var(--accent);
+}
+
+.daily-plan-summary span,
+.diet-summary span,
+.progress-metrics span,
+.metric-tile span,
+.calibration-readout span,
+.diet-meal__header p,
+.diet-food p,
+.diet-food small,
+.session-list span,
+.review-list p {
+  color: var(--text-muted);
+}
+
+.daily-plan-list {
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--border);
+}
+
+.daily-plan-list article {
+  border: 0;
+  border-radius: 0;
+}
+
+.daily-plan-list article:hover {
+  background: var(--surface-subtle);
+}
+
+.daily-plan-list__order {
+  border-radius: 6px;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.daily-plan-list p {
+  color: var(--text-muted);
+}
+
+.daily-plan-list article > strong,
+.session-diagnostic {
+  color: var(--accent-strong) !important;
+}
+
+.daily-plan-list article > a,
+.primary-action,
+.exercise-guide-card__action {
+  border: 1px solid var(--accent);
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.daily-plan-list article > a:hover,
+.primary-action:hover,
+.exercise-guide-card__action:hover {
+  background: var(--accent-strong);
+}
+
+.daily-dashboard__links a,
+.hero-actions a {
+  border-color: var(--border);
+  color: var(--text-muted);
+  background: var(--surface);
+}
+
+.daily-dashboard__links a:hover,
+.hero-actions a:hover {
+  color: var(--accent-strong);
+  border-color: var(--accent);
+}
+
+.daily-plan-safety {
+  border-color: color-mix(in srgb, var(--warning) 30%, var(--border));
+  background: var(--warning-soft);
+}
+
+.daily-plan-safety p {
+  color: var(--text);
+}
+
+.exercise-selector button,
+.exercise-guide-list__item,
+.choice-control,
+.meal-actions button {
+  border-color: var(--border);
+  color: var(--text);
+  background: var(--surface);
+}
+
+.exercise-selector button:hover,
+.exercise-guide-list__item:hover,
+.choice-control:hover,
+.meal-actions button:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-subtle);
+}
+
+.exercise-selector button.is-active,
+.exercise-guide-list__item.is-active,
+.choice-control:has(input:checked) {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.exercise-selector span,
+.exercise-guide-list__item small,
+.exercise-guide-card__heading p,
+.exercise-guide-card__content ul,
+.exercise-guide-card__content p,
+.coach-guide-context__cues span,
+.coach-feedback p,
+.session-summary span,
+.diagnostics-panel__details p,
+.diagnostics-panel__metrics span {
+  color: var(--text-muted);
+}
+
+.exercise-library__controls label {
+  border-color: var(--border);
+  color: var(--text-muted);
+  background: var(--surface);
+}
+
+.exercise-library__controls select,
+.form-grid input,
+.form-grid select,
+.form-grid textarea,
+.phone-connect-panel input {
+  border-color: var(--border);
+  color: var(--text);
+  background: var(--surface-subtle);
+}
+
+.exercise-guide-card__meta span {
+  color: var(--text-muted);
+  background: var(--surface-subtle);
+}
+
+.exercise-guide-card {
+  position: sticky;
+  top: 150px;
+  align-self: start;
+  align-content: start;
+  max-height: calc(100vh - 174px);
+  overflow: auto;
+}
+
+.exercise-guide-card__media,
+.diet-food img,
+.meal-preview {
+  border-color: var(--border);
+  background: var(--surface-subtle);
+}
+
+.diet-food dl div,
+.diagnostics-panel__metrics article,
+.diagnostics-panel__details > div,
+.metric-tile,
+.calibration-readout,
+.lunge-balance,
+.lunge-balance > div {
+  border-color: var(--border);
+  background: var(--surface-subtle);
+}
+
+.diet-food dt,
+.lunge-balance span,
+.lunge-balance small,
+.calibration-readout small,
+.animated-coach__header span {
+  color: var(--text-muted);
+}
+
+.coach-guide-context {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  background: var(--accent-soft);
+}
+
+.coach-guide-context__heading > svg,
+.coach-guide-context__heading a {
+  color: var(--accent-strong);
+}
+
+.coach-guide-context__cues div {
+  border-left-color: var(--accent);
+  background: var(--surface);
+}
+
+.pose-stage,
+.phone-camera-preview,
+.meal-preview {
+  border-color: var(--border);
+  background: var(--camera);
+}
+
+.pose-stage__empty,
+.phone-camera-preview__empty {
+  color: #9aa8ba;
+}
+
+.activity-region {
+  border-color: #52a0ff;
+}
+
+.animated-coach {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+.animated-coach__canvas {
+  border-color: var(--border);
+}
+
+.animated-coach__modes {
+  background: var(--surface-subtle);
+}
+
+.animated-coach__modes button {
+  color: var(--text-muted);
+}
+
+.animated-coach__modes button.is-active {
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.animated-coach > p {
+  color: var(--text-muted);
+}
+
+.pose-actions button {
+  border-color: var(--accent);
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.pose-actions button:hover {
+  background: var(--accent-strong);
+}
+
+.meal-qr svg,
+.phone-connect-panel__qr {
+  background: #ffffff;
+}
+
+.meal-result__grid article {
+  border-color: var(--border);
+  background: var(--surface-subtle);
+}
+
+.meal-result__grid strong,
+.calorie-estimate {
+  color: var(--accent-strong);
+}
+
+.calorie-estimate {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: var(--accent-soft);
+}
+
+.meal-result__grid p,
+.meal-result__grid li,
+.session-list__diagnostic {
+  color: var(--text-muted);
+}
+
+.empty-state a {
+  color: var(--accent-strong);
+}
+
+.inline-error {
+  color: var(--danger);
+}
+
+.form-grid label,
+.form-section > label {
+  color: var(--text-muted);
+}
+
+.choice-control input {
+  accent-color: var(--accent);
+}
+
+.session-list article,
+.review-list article {
+  background: var(--surface-subtle);
+}
+
+.session-list__diagnostic {
+  border-top-color: var(--border);
+}
+
+@media (max-width: 980px) {
+  .site-nav a span {
+    display: none;
+  }
+
+  .site-nav a {
+    justify-content: center;
+    min-width: 38px;
+    padding-inline: 9px;
+  }
+
+  .pose-coach__workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .pose-readout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .animated-coach,
+  .coach-guide-context,
+  .diagnostics-panel,
+  .phone-connect-panel,
+  .pose-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .brand-strip,
+  .navigation-row,
+  .page-shell,
+  .site-footer {
+    width: min(100% - 24px, 1240px);
+  }
+
+  .brand-strip {
+    min-height: 58px;
+    padding: 8px 0;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .product-mark small {
+    display: none;
+  }
+
+  .event-mark--codefront,
+  .event-mark--idc {
+    display: none;
+  }
+
+  .event-mark--mindsparks {
+    width: 58px;
+    height: 30px;
+  }
+
+  .navigation-row {
+    gap: 6px;
+  }
+
+  .site-nav {
+    gap: 1px;
+    padding: 7px 0;
+  }
+
+  .site-nav a {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 8px;
+  }
+
+  .theme-toggle {
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .page-shell {
+    padding: 24px 0 44px;
+  }
+
+  .daily-dashboard__header {
+    min-height: 0;
+    padding: 24px;
+  }
+
+  .daily-dashboard__header img {
+    width: 62px;
+    height: 62px;
+    padding: 6px;
+  }
+
+  .pose-readout {
+    grid-template-columns: 1fr;
+  }
+
+  .exercise-guide-card {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .site-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

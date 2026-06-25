@@ -9,6 +9,7 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
+    "start": "pnpm --filter @shorir/api start",
     "api:dev": "pnpm --filter @shorir/api dev",
     "web:dev": "pnpm --filter @shorir/web dev",
     "supabase": "supabase",

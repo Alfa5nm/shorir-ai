@@ -1,5 +1,8 @@
 import cors from "cors";
 import express, { type Express } from "express";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createGeminiCoach } from "./adapters/gemini/geminiCoach.js";
 import { createStubCoach } from "./adapters/gemini/stubCoach.js";
 import { createBasicImageProcessor } from "./adapters/memory/basicImageProcessor.js";
@@ -29,6 +32,14 @@ export function createApp(): Express {
       objectStorage: createNoopObjectStorage()
     }, env.nodeEnv)
   );
+
+  const webDistPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../web/dist");
+  if (env.nodeEnv === "production" && existsSync(webDistPath)) {
+    app.use(express.static(webDistPath));
+    app.get("*", (_req, res) => {
+      res.sendFile(path.join(webDistPath, "index.html"));
+    });
+  }
 
   app.use(errorMiddleware);
 
