@@ -31,7 +31,7 @@ Competition Showcase: bright, polished, white/blue, energetic, and still practic
 - Buttons use shadcn-style variants: default, secondary, outline, ghost, destructive.
 - Cards use 8px radii, thin blue-gray borders, and restrained shadows.
 - Badges are small, high-contrast status labels.
-- Tabs hide secondary content and prevent stacked layouts.
+- Tabs hide secondary content and prevent stacked layouts; do not expose dev-only or presenter-only panels in public user flows.
 - Inputs/selects/textarea use consistent white surfaces, blue focus rings, and stable heights.
 
 ## Motion

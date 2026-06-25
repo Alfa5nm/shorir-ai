@@ -26,7 +26,7 @@ SHORIR AI is a browser-first movement intelligence product for beginners and ret
 - Diet Chart: familiar meal planning with clear macro and calorie estimates.
 - Calorie Check: low-friction desktop upload or phone QR capture.
 - Progress: summaries, recent sessions, and coach diagnostics.
-- Demo: official first-time presenter flow and acceptance checklist.
+- Demo: public first-time walkthrough that shows the product loop without developer-only controls.
 - Onboarding: guided profile setup that unlocks better plans and nutrition.
 - About Competition: lightweight submission and competition context.
 
