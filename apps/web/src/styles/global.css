@@ -1234,6 +1234,19 @@ a {
   margin-top: 0;
 }
 
+.meal-result__grid strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #f4cf67;
+  font-size: 1.2rem;
+}
+
+.meal-result__grid p {
+  margin: 0;
+  color: rgba(255, 248, 234, 0.68);
+  line-height: 1.4;
+}
+
 .meal-result__grid li {
   margin-bottom: 8px;
   color: rgba(255, 248, 234, 0.74);

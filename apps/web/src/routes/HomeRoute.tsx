@@ -24,7 +24,7 @@ export function HomeRoute() {
         <a href="/onboarding">Start onboarding</a>
         <a href="/coach">Open pose coach</a>
         <a href="/diet-chart">View diet chart</a>
-        <a href="/meal">Review a meal</a>
+        <a href="/calorie-check">Check calories</a>
         <a href="/progress">View progress</a>
       </div>
     </section>

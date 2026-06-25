@@ -8,7 +8,7 @@ const navItems = [
   { href: "/coach", label: "Pose Coach" },
   { href: "/exercise-library", label: "Exercises" },
   { href: "/diet-chart", label: "Diet Chart" },
-  { href: "/meal", label: "Meal Review" },
+  { href: "/calorie-check", label: "Calorie Check" },
   { href: "/progress", label: "Progress" },
   { href: "/presentation", label: "Presentation" },
   { href: "/report", label: "Report" }

@@ -49,15 +49,15 @@ export function QrCaptureFeature() {
   return (
     <section className="phone-upload-page">
       <StatusPill tone={complete ? "success" : error ? "warning" : "neutral"}>
-        {complete ? "Uploaded" : "Phone meal upload"}
+        {complete ? "Uploaded" : "Phone calorie check"}
       </StatusPill>
-      <h1>{complete ? "Meal review is ready" : "Choose a meal photo"}</h1>
-      <p>{complete ? "Return to the desktop screen to see the review." : "Use one clear photo showing the full plate."}</p>
+      <h1>{complete ? "Calorie check is ready" : "Choose or capture a meal photo"}</h1>
+      <p>{complete ? "Return to the desktop screen to see the calorie range and meal review." : "Use one clear photo showing the full plate."}</p>
       {isBusy && <Loader2 className="spin" size={28} />}
       {!isBusy && isValid && !complete && (
         <label className="primary-action">
           <ImageUp size={18} />
-          Choose and upload photo
+          Choose or capture photo
           <input
             className="visually-hidden"
             type="file"

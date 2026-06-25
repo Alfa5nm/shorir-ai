@@ -25,6 +25,7 @@ export function AppRouter() {
           <Route path="/diet-chart" element={<DietChartRoute />} />
           <Route path="/progress" element={<ProgressRoute />} />
           <Route path="/meal" element={<MealRoute />} />
+          <Route path="/calorie-check" element={<MealRoute />} />
           <Route path="/capture/:id" element={<QrCaptureRoute />} />
           <Route path="/phone-camera/:id" element={<PhoneCameraRoute />} />
           <Route path="/presentation" element={<PresentationRoute />} />
