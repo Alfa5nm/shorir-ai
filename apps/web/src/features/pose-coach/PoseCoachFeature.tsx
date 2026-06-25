@@ -715,6 +715,23 @@ export function PoseCoachFeature() {
             <span>Reps</span>
             <strong>{metrics.reps}</strong>
           </div>
+          {metrics.repCounts && (
+            <div className="lunge-balance" aria-label="Lunge side balance">
+              <div>
+                <span>Left</span>
+                <strong>{metrics.repCounts.left}</strong>
+              </div>
+              <div>
+                <span>Right</span>
+                <strong>{metrics.repCounts.right}</strong>
+              </div>
+              <small>
+                {Math.abs(metrics.repCounts.left - metrics.repCounts.right) <= 1
+                  ? "Balanced set"
+                  : `Next side: ${metrics.repCounts.left < metrics.repCounts.right ? "left" : "right"}`}
+              </small>
+            </div>
+          )}
           <div className="metric-tile">
             <span>{metrics.primaryAngleLabel}</span>
             <strong>{metrics.primaryAngle === null ? "--" : `${metrics.primaryAngle} deg`}</strong>

@@ -10,6 +10,8 @@ function snapshot(changes: Partial<AnalyzerSnapshot> = {}): AnalyzerSnapshot {
     primaryAngleLabel: "Elbow angle",
     phase: "top_ready",
     reps: 0,
+    repCounts: null,
+    activeLungeSide: null,
     feedbackCode: "ready",
     feedback: "Ready",
     calibrationPhase: "complete",

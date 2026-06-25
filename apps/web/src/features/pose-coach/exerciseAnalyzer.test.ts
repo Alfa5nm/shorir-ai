@@ -113,6 +113,24 @@ function lungeFrame(kneeX: number, kneeY: number) {
   };
 }
 
+function rightLungeFrame(kneeX: number, kneeY: number) {
+  const source = lungeFrame(0.49, 0.65);
+  return {
+    ...source,
+    landmarks: source.landmarks.map((point) => {
+      if (point.name === "left_shoulder") return { ...point, x: 0.57, y: 0.2 };
+      if (point.name === "left_hip") return { ...point, x: 0.56, y: 0.43 };
+      if (point.name === "left_knee") return { ...point, x: 0.62, y: 0.67 };
+      if (point.name === "left_ankle") return { ...point, x: 0.69, y: 0.86 };
+      if (point.name === "right_shoulder") return { ...point, x: 0.54, y: 0.2, confidence: 0.99 };
+      if (point.name === "right_hip") return { ...point, x: 0.52, y: 0.43, confidence: 0.99 };
+      if (point.name === "right_knee") return { ...point, x: 1 - kneeX, y: kneeY, confidence: 0.99 };
+      if (point.name === "right_ankle") return { ...point, x: 0.5, y: 0.86, confidence: 0.99 };
+      return point;
+    })
+  };
+}
+
 function calibratePushUp() {
   const analyzer = createExerciseAnalyzer("push-up");
   analyzer.beginCalibration();
@@ -192,7 +210,7 @@ function calibrateLunge() {
 
 function completeLungeRep(analyzer: ReturnType<typeof createExerciseAnalyzer>) {
   const targetReps = analyzer.snapshot().reps + 1;
-  for (let index = 0; index < 5; index += 1) analyzer.process(next(lungeFrame(0.49, 0.65), 140));
+  for (let index = 0; index < 7; index += 1) analyzer.process(next(lungeFrame(0.49, 0.65), 140));
   for (let index = 0; index < 4; index += 1) analyzer.process(next(lungeFrame(0.58, 0.66), 180));
   for (let index = 0; index < 4; index += 1) analyzer.process(next(lungeFrame(0.68, 0.65), 180));
   for (let index = 0; index < 4; index += 1) analyzer.process(next(lungeFrame(0.58, 0.66), 180));
@@ -384,12 +402,26 @@ describe("squat analyzer", () => {
 describe("lunge analyzer", () => {
   it("calibrates and counts a controlled lunge once", () => {
     const analyzer = calibrateLunge();
-    expect(completeLungeRep(analyzer).reps).toBe(1);
+    const completed = completeLungeRep(analyzer);
+    expect({
+      reps: completed.reps,
+      phase: completed.phase,
+      gate: completed.repGateStatus,
+      feedback: completed.feedbackCode,
+      side: completed.activeLungeSide
+    }).toEqual({
+      reps: 1,
+      phase: "standing_ready",
+      gate: "cooldown",
+      feedback: "rep_completed",
+      side: "left"
+    });
+    expect(completed.repCounts).toEqual({ left: 1, right: 0 });
   });
 
   it("rejects a shallow lunge", () => {
     const analyzer = calibrateLunge();
-    for (let index = 0; index < 5; index += 1) analyzer.process(next(lungeFrame(0.49, 0.65), 140));
+    for (let index = 0; index < 7; index += 1) analyzer.process(next(lungeFrame(0.49, 0.65), 140));
     for (let index = 0; index < 3; index += 1) analyzer.process(next(lungeFrame(0.57, 0.66), 180));
     expect(analyzer.process(next(lungeFrame(0.49, 0.65), 180)).reps).toBe(0);
   });
@@ -399,5 +431,34 @@ describe("lunge analyzer", () => {
     const missingRearAnkle = lungeFrame(0.49, 0.65);
     missingRearAnkle.landmarks = missingRearAnkle.landmarks.filter((point) => point.name !== "right_ankle");
     expect(analyzer.process(next(missingRearAnkle)).feedbackCode).toBe("low_confidence");
+  });
+
+  it("tracks left and right lunges independently after standing reset", () => {
+    const analyzer = calibrateLunge();
+    expect(completeLungeRep(analyzer).repCounts).toEqual({ left: 1, right: 0 });
+    for (let index = 0; index < 6; index += 1) analyzer.process(next(rightLungeFrame(0.49, 0.65), 180));
+    for (let index = 0; index < 4; index += 1) analyzer.process(next(rightLungeFrame(0.58, 0.66), 180));
+    for (let index = 0; index < 4; index += 1) analyzer.process(next(rightLungeFrame(0.68, 0.65), 180));
+    for (let index = 0; index < 4; index += 1) analyzer.process(next(rightLungeFrame(0.58, 0.66), 180));
+    let completed = analyzer.snapshot();
+    for (let index = 0; index < 10; index += 1) {
+      completed = analyzer.process(next(rightLungeFrame(0.49, 0.65), 180));
+      if (completed.reps === 2) break;
+    }
+    expect({
+      reps: completed.reps,
+      repCounts: completed.repCounts,
+      phase: completed.phase,
+      gate: completed.repGateStatus,
+      feedback: completed.feedbackCode,
+      side: completed.activeLungeSide
+    }).toEqual({
+      reps: 2,
+      repCounts: { left: 1, right: 1 },
+      phase: "standing_ready",
+      gate: "cooldown",
+      feedback: "rep_completed",
+      side: "right"
+    });
   });
 });

@@ -68,6 +68,8 @@ export interface AnalyzerSnapshot {
   primaryAngleLabel: string;
   phase: ExercisePhase;
   reps: number;
+  repCounts: { left: number; right: number } | null;
+  activeLungeSide: "left" | "right" | null;
   feedbackCode: FeedbackCode;
   feedback: string;
   calibrationPhase: CalibrationPhase;
@@ -160,11 +162,16 @@ interface QualityResult {
 }
 
 const qualityConfidenceThreshold = 0.68;
-const stableTopMs = 250;
-const minimumRepMs = 900;
-const bottomConfirmMs = 120;
-const cooldownMs = 600;
 const smoothingWindowSize = 5;
+
+const exerciseTiming: Record<
+  SupportedExercise,
+  { stableTopMs: number; minimumRepMs: number; bottomConfirmMs: number; cooldownMs: number }
+> = {
+  squat: { stableTopMs: 250, minimumRepMs: 900, bottomConfirmMs: 120, cooldownMs: 600 },
+  "push-up": { stableTopMs: 250, minimumRepMs: 900, bottomConfirmMs: 120, cooldownMs: 600 },
+  lunge: { stableTopMs: 320, minimumRepMs: 1_000, bottomConfirmMs: 160, cooldownMs: 650 }
+};
 
 function isStandingExercise(exercise: SupportedExercise) {
   return exercise !== "push-up";
@@ -222,6 +229,13 @@ function sideFor(frame: PoseFrame, side: "left" | "right"): SideLandmarks {
 function chooseSide(frame: PoseFrame, exercise: SupportedExercise) {
   const left = sideFor(frame, "left");
   const right = sideFor(frame, "right");
+  if (exercise === "lunge") {
+    const leftAngle = primaryAngle(exercise, left);
+    const rightAngle = primaryAngle(exercise, right);
+    if (leftAngle !== null && rightAngle !== null && Math.abs(leftAngle - rightAngle) >= 8) {
+      return leftAngle < rightAngle ? left : right;
+    }
+  }
   return requiredConfidence(exercise, right) > requiredConfidence(exercise, left) ? right : left;
 }
 
@@ -467,6 +481,8 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
   readonly exercise: SupportedExercise;
   private phase: ExercisePhase = "idle";
   private reps = 0;
+  private repCounts = { left: 0, right: 0 };
+  private currentRepSide: "left" | "right" | null = null;
   private calibrationPhase: CalibrationPhase = "idle";
   private calibrationProfile: CalibrationProfile | null = null;
   private topSamples: CalibrationSample[] = [];
@@ -500,6 +516,8 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
       primaryAngleLabel: exerciseDefinitions[this.exercise].primaryAngleLabel,
       phase: this.phase,
       reps: this.reps,
+      repCounts: this.exercise === "lunge" ? { ...this.repCounts } : null,
+      activeLungeSide: this.exercise === "lunge" ? this.currentRepSide ?? this.activeSideName : null,
       calibrationPhase: this.calibrationPhase,
       calibrationProfile: this.calibrationProfile,
       livePoseBox: null,
@@ -521,6 +539,8 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
   reset() {
     this.phase = "idle";
     this.reps = 0;
+    this.repCounts = { left: 0, right: 0 };
+    this.currentRepSide = null;
     this.calibrationPhase = "idle";
     this.calibrationProfile = null;
     this.topSamples = [];
@@ -544,6 +564,8 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
   beginCalibration() {
     this.phase = "idle";
     this.reps = 0;
+    this.repCounts = { left: 0, right: 0 };
+    this.currentRepSide = null;
     this.calibrationPhase = "standing";
     this.calibrationProfile = null;
     this.topSamples = [];
@@ -574,6 +596,7 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
     this.repStartedAt = null;
     this.bottomSince = null;
     this.topStableSince = null;
+    this.currentRepSide = null;
   }
 
   private updateQuality(
@@ -614,7 +637,10 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
   }
 
   process(frame: PoseFrame) {
-    const side = chooseSide(frame, this.exercise);
+    const side =
+      this.exercise === "lunge" && this.currentRepSide
+        ? sideFor(frame, this.currentRepSide)
+        : chooseSide(frame, this.exercise);
     const box = exercisePoseBox(frame, this.exercise, side);
     const scale = bodyScale(this.exercise, side);
     const angle = primaryAngle(this.exercise, side);
@@ -766,6 +792,15 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
       sideName: side.sideName,
       confidence
     };
+    const previousMeasurement = this.measurements[this.measurements.length - 1];
+    const lungeCanSwitchSides =
+      this.exercise === "lunge" &&
+      previousMeasurement?.sideName !== measurement.sideName &&
+      (this.phase === "idle" || this.phase === "standing_ready");
+    if (lungeCanSwitchSides) {
+      this.measurements = [];
+      this.activeSideName = measurement.sideName;
+    }
     this.measurements.push(measurement);
     if (this.measurements.length > smoothingWindowSize) this.measurements.shift();
     const smoothed = averageMeasurement(this.measurements) ?? measurement;
@@ -855,10 +890,11 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
     const bottomThreshold = profile.depthAngle + Math.max(14, (profile.topAngle - profile.depthAngle) * 0.12);
     const ascentThreshold = profile.depthAngle + 18;
     const now = smoothed.timestamp;
+    const timing = exerciseTiming[this.exercise];
     const isTop = effectiveAngle > topThreshold;
     const isDescending = effectiveAngle < descentThreshold;
     const isBottom = effectiveAngle < bottomThreshold;
-    const cooldownActive = this.lastRepAt !== null && now - this.lastRepAt < cooldownMs;
+    const cooldownActive = this.lastRepAt !== null && now - this.lastRepAt < timing.cooldownMs;
 
     if (cooldownActive) {
       this.repGateStatus = "cooldown";
@@ -868,7 +904,7 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
       this.phase = readyPhase(this.exercise);
       this.topStableSince ??= now;
       const stableFor = now - this.topStableSince;
-      if (stableFor < stableTopMs) {
+      if (stableFor < timing.stableTopMs) {
         this.repGateStatus = "waiting_for_stable_top";
         feedbackCode = "waiting_for_stable_top";
         feedback = isStandingExercise(this.exercise)
@@ -890,6 +926,7 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
       } else {
         this.phase = "descending";
         this.repStartedAt = now;
+        this.currentRepSide = this.exercise === "lunge" ? smoothed.sideName : null;
         this.bottomSince = null;
         this.topStableSince = null;
         this.repGateStatus = "rep_in_progress";
@@ -899,7 +936,7 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
     } else if (this.phase === "descending" && isBottom) {
       this.phase = "descending";
       this.bottomSince ??= now;
-      if (now - this.bottomSince >= bottomConfirmMs) {
+      if (now - this.bottomSince >= timing.bottomConfirmMs) {
         this.phase = "bottom";
         feedbackCode = "bottom";
         feedback = this.exercise === "push-up" ? "Good depth. Press up smoothly." : "Good depth. Drive up smoothly.";
@@ -920,20 +957,26 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
     } else if (this.phase === "ascending" && isTop) {
       this.topStableSince ??= now;
       const repDuration = this.repStartedAt === null ? 0 : now - this.repStartedAt;
-      if (now - this.topStableSince >= stableTopMs && repDuration >= minimumRepMs) {
+      if (now - this.topStableSince >= timing.stableTopMs && repDuration >= timing.minimumRepMs) {
         this.phase = readyPhase(this.exercise);
         this.reps += 1;
+        if (this.exercise === "lunge" && this.currentRepSide) {
+          this.repCounts[this.currentRepSide] += 1;
+        }
         this.lastRepAt = now;
         this.repStartedAt = null;
         this.bottomSince = null;
         this.repGateStatus = "cooldown";
         feedbackCode = "rep_completed";
-        feedback = isStandingExercise(this.exercise)
-          ? "Rep counted. Reset tall before the next rep."
+        feedback = this.exercise === "lunge"
+          ? `${this.currentRepSide === "right" ? "Right" : "Left"} lunge counted. Reset tall before changing sides.`
+          : isStandingExercise(this.exercise)
+            ? "Rep counted. Reset tall before the next rep."
           : "Rep counted. Reset in a straight top plank.";
+        this.currentRepSide = null;
       } else {
         feedbackCode = "ascending";
-        feedback = repDuration < minimumRepMs ? "Move slower so the rep can be verified." : "Hold the top briefly to finish the rep.";
+        feedback = repDuration < timing.minimumRepMs ? "Move slower so the rep can be verified." : "Hold the top briefly to finish the rep.";
       }
     } else if (this.phase === "descending" && isTop) {
       this.resetRepAttempt();
@@ -951,6 +994,8 @@ class StatefulExerciseAnalyzer implements ExerciseAnalyzer {
       ...assessed,
       phase: this.phase,
       reps: this.reps,
+      repCounts: this.exercise === "lunge" ? { ...this.repCounts } : null,
+      activeLungeSide: this.exercise === "lunge" ? this.currentRepSide ?? this.activeSideName : null,
       repGateStatus: this.repGateStatus,
       formValid: true,
       feedbackCode,
