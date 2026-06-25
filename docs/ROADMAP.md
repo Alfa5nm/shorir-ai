@@ -12,7 +12,7 @@
 ## After MVP
 
 - Persist calibration profiles by device and camera setup.
-- Add exercise-specific push-up and lunge analyzers.
+- Add an exercise-specific lunge analyzer; push-up coaching is now available.
 - Connect exercise-library guides to animated demonstrations.
 - Add Bangla voice cues, accessibility controls, and countdowns.
 - Move WebRTC signaling to Redis and configure short-lived TURN credentials.

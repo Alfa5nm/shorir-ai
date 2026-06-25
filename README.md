@@ -7,11 +7,12 @@ summaries.
 ## Current Features
 
 - Persistent anonymous browser profile and safety-aware onboarding.
-- Browser-side MediaPipe squat analysis.
+- Browser-side MediaPipe squat and standard floor push-up analysis.
 - Calibrated activity region, personal depth threshold, and relative camera-distance checks.
-- Adaptive animated squat demonstration.
+- Adaptive animated squat and push-up demonstrations.
 - Direct encrypted WebRTC phone camera pairing through an automated HTTPS QR flow.
-- Desktop and QR phone meal-image review.
+- Profile-aware Bangladeshi diet chart with local meal images.
+- Desktop and QR phone calorie/meal-image review.
 - Saved session and coach-review progress dashboard.
 - Independent exercise-library contribution module.
 

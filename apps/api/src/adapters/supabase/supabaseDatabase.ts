@@ -22,6 +22,11 @@ interface ProfileRow {
   equipment: Profile["equipment"];
   weekly_schedule: string[];
   safety: SafetyFlags;
+  height: number | string | null;
+  weight: number | string | null;
+  target_weight: number | string | null;
+  age: number | string | null;
+  gender: Profile["gender"] | null;
   created_at: string;
   updated_at: string;
 }
@@ -119,6 +124,11 @@ function mapProfile(row: ProfileRow): Profile {
     equipment: row.equipment,
     weeklySchedule: row.weekly_schedule,
     safety: row.safety,
+    ...(toNumber(row.height) === undefined ? {} : { height: toNumber(row.height) }),
+    ...(toNumber(row.weight) === undefined ? {} : { weight: toNumber(row.weight) }),
+    ...(toNumber(row.target_weight) === undefined ? {} : { targetWeight: toNumber(row.target_weight) }),
+    ...(toNumber(row.age) === undefined ? {} : { age: toNumber(row.age) }),
+    ...(row.gender ? { gender: row.gender } : {}),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -238,7 +248,12 @@ export function createSupabaseDatabase(client?: SupabaseClient): Database {
         fitness_level: input.fitnessLevel,
         equipment: input.equipment,
         weekly_schedule: input.weeklySchedule,
-        safety: input.safety
+        safety: input.safety,
+        ...(input.height !== undefined ? { height: input.height } : {}),
+        ...(input.weight !== undefined ? { weight: input.weight } : {}),
+        ...(input.targetWeight !== undefined ? { target_weight: input.targetWeight } : {}),
+        ...(input.age !== undefined ? { age: input.age } : {}),
+        ...(input.gender !== undefined ? { gender: input.gender } : {})
       };
 
       const { data, error } = await supabase.from("profiles").upsert(payload).select("*").single();

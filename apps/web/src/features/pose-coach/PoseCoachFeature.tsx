@@ -2,58 +2,33 @@ import type { CoachReview, PhoneCameraSession, WorkoutSession } from "@shorir/co
 import { Camera, CircleStop, Loader2, RefreshCw, Save, ScanLine, ShieldAlert, Smartphone, Wifi } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useAppServices } from "../../app/providers";
 import { ensureProfileId as ensureBrowserProfileId } from "../../app/profileSession";
-import type { PoseFrame, PoseLandmark } from "../../ports/poseEstimator";
+import type { PoseFrame } from "../../ports/poseEstimator";
 import { phoneCameraRtcConfiguration, serializeCandidate, serializeDescription } from "../phone-camera/webrtc";
-import { AnimatedSquatCoach } from "./AnimatedSquatCoach";
+import { AnimatedExerciseCoach } from "./AnimatedExerciseCoach";
+import { defaultCameraGeometry, resolveCameraGeometry, type CameraGeometry } from "./cameraGeometry";
+import {
+  createExerciseAnalyzer,
+  exerciseDefinitions,
+  type AnalyzerSnapshot,
+  type NormalizedBox,
+  type SupportedExercise
+} from "./exerciseAnalyzer";
 
-type SquatPhase = "idle" | "standing_ready" | "descending" | "bottom" | "ascending";
 type CameraMode = "local" | "phone" | null;
 type PoseSource = HTMLVideoElement;
-type CalibrationPhase = "idle" | "standing" | "depth" | "complete";
-
-interface NormalizedBox {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface CalibrationProfile {
-  region: NormalizedBox;
-  standingAngle: number;
-  depthAngle: number;
-  referenceScale: number;
-}
-
-interface CalibrationSample {
-  box: NormalizedBox;
-  kneeAngle: number;
-  bodyScale: number;
-}
-
-interface SquatMetrics {
-  confidence: number;
-  kneeAngle: number | null;
-  phase: SquatPhase;
-  reps: number;
-  feedback: string;
-}
-
-const initialMetrics: SquatMetrics = {
-  confidence: 0,
-  kneeAngle: null,
-  phase: "idle",
-  reps: 0,
-  feedback: "Stand side-on, keep your full body in frame, then start tracking."
-};
 
 const poseConnections = [
+  ["left_shoulder", "left_elbow"],
+  ["left_elbow", "left_wrist"],
   ["left_shoulder", "left_hip"],
   ["left_hip", "left_knee"],
   ["left_knee", "left_ankle"],
+  ["right_shoulder", "right_elbow"],
+  ["right_elbow", "right_wrist"],
   ["right_shoulder", "right_hip"],
   ["right_hip", "right_knee"],
   ["right_knee", "right_ankle"],
@@ -65,138 +40,8 @@ function landmarkByName(frame: PoseFrame, name: string) {
   return frame.landmarks.find((landmark) => landmark.name === name) ?? null;
 }
 
-function averageConfidence(landmarks: Array<PoseLandmark | null>) {
-  const available = landmarks.filter((landmark): landmark is PoseLandmark => Boolean(landmark));
-  if (available.length === 0) {
-    return 0;
-  }
-  return available.reduce((total, landmark) => total + landmark.confidence, 0) / available.length;
-}
-
-function angleDegrees(a: PoseLandmark, b: PoseLandmark, c: PoseLandmark) {
-  const ab = { x: a.x - b.x, y: a.y - b.y };
-  const cb = { x: c.x - b.x, y: c.y - b.y };
-  const dot = ab.x * cb.x + ab.y * cb.y;
-  const abLength = Math.hypot(ab.x, ab.y);
-  const cbLength = Math.hypot(cb.x, cb.y);
-  if (abLength === 0 || cbLength === 0) {
-    return null;
-  }
-  const cosine = Math.min(1, Math.max(-1, dot / (abLength * cbLength)));
-  return Math.round((Math.acos(cosine) * 180) / Math.PI);
-}
-
-function landmarkDistance(a: PoseLandmark, b: PoseLandmark) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
-function bodyScale(side: ReturnType<typeof chooseSide>) {
-  if (!side.shoulder || !side.hip || !side.knee || !side.ankle) {
-    return null;
-  }
-  return (
-    landmarkDistance(side.shoulder, side.hip) +
-    landmarkDistance(side.hip, side.knee) +
-    landmarkDistance(side.knee, side.ankle)
-  );
-}
-
-function chooseSide(frame: PoseFrame) {
-  const left = {
-    shoulder: landmarkByName(frame, "left_shoulder"),
-    hip: landmarkByName(frame, "left_hip"),
-    knee: landmarkByName(frame, "left_knee"),
-    ankle: landmarkByName(frame, "left_ankle")
-  };
-  const right = {
-    shoulder: landmarkByName(frame, "right_shoulder"),
-    hip: landmarkByName(frame, "right_hip"),
-    knee: landmarkByName(frame, "right_knee"),
-    ankle: landmarkByName(frame, "right_ankle")
-  };
-  const leftConfidence = averageConfidence([left.shoulder, left.hip, left.knee, left.ankle]);
-  const rightConfidence = averageConfidence([right.shoulder, right.hip, right.knee, right.ankle]);
-
-  return rightConfidence > leftConfidence
-    ? { ...right, confidence: rightConfidence }
-    : { ...left, confidence: leftConfidence };
-}
-
 function sourceDimensions(source: PoseSource) {
   return { width: source.videoWidth, height: source.videoHeight };
-}
-
-function clamp(value: number, minimum = 0, maximum = 1) {
-  return Math.min(maximum, Math.max(minimum, value));
-}
-
-function poseBox(frame: PoseFrame): NormalizedBox | null {
-  const landmarks = frame.landmarks.filter((landmark) => landmark.confidence >= 0.55);
-  if (landmarks.length < 8) {
-    return null;
-  }
-  const xs = landmarks.map((landmark) => landmark.x);
-  const ys = landmarks.map((landmark) => landmark.y);
-  const x = clamp(Math.min(...xs));
-  const y = clamp(Math.min(...ys));
-  return {
-    x,
-    y,
-    width: clamp(Math.max(...xs) - x),
-    height: clamp(Math.max(...ys) - y)
-  };
-}
-
-function averageSample(samples: CalibrationSample[]) {
-  const total = samples.reduce(
-    (result, sample) => ({
-      x: result.x + sample.box.x,
-      y: result.y + sample.box.y,
-      width: result.width + sample.box.width,
-      height: result.height + sample.box.height,
-      angle: result.angle + sample.kneeAngle,
-      bodyScale: result.bodyScale + sample.bodyScale
-    }),
-    { x: 0, y: 0, width: 0, height: 0, angle: 0, bodyScale: 0 }
-  );
-  const count = Math.max(1, samples.length);
-  return {
-    box: {
-      x: total.x / count,
-      y: total.y / count,
-      width: total.width / count,
-      height: total.height / count
-    },
-    angle: total.angle / count,
-    bodyScale: total.bodyScale / count
-  };
-}
-
-function activityRegion(boxes: NormalizedBox[]): NormalizedBox {
-  const left = Math.min(...boxes.map((box) => box.x));
-  const top = Math.min(...boxes.map((box) => box.y));
-  const right = Math.max(...boxes.map((box) => box.x + box.width));
-  const bottom = Math.max(...boxes.map((box) => box.y + box.height));
-  const width = right - left;
-  const height = bottom - top;
-  const x = clamp(left - width * 0.24);
-  const y = clamp(top - height * 0.08);
-  return {
-    x,
-    y,
-    width: Math.min(1 - x, width * 1.48),
-    height: Math.min(1 - y, height * 1.14)
-  };
-}
-
-function boxInsideRegion(box: NormalizedBox, region: NormalizedBox) {
-  const tolerance = 0.025;
-  return (
-    box.x >= region.x - tolerance &&
-    box.y >= region.y - tolerance &&
-    box.x + box.width <= region.x + region.width + tolerance &&
-    box.y + box.height <= region.y + region.height + tolerance
-  );
 }
 
 function boxStyle(box: NormalizedBox, mirrored: boolean) {
@@ -255,6 +100,9 @@ function drawPose(canvas: HTMLCanvasElement | null, source: PoseSource | null, f
 
 export function PoseCoachFeature() {
   const { apiClient, poseEstimator } = useAppServices();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedExercise = searchParams.get("exercise");
+  const initialExercise: SupportedExercise = requestedExercise === "push-up" ? "push-up" : "squat";
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const activeSourceRef = useRef<PoseSource | null>(null);
@@ -265,28 +113,20 @@ export function PoseCoachFeature() {
   const phoneCandidatesRef = useRef(new Set<string>());
   const phoneTrackingStartedRef = useRef(false);
   const iceRestartingRef = useRef(false);
-  const phaseRef = useRef<SquatPhase>("idle");
-  const repsRef = useRef(0);
+  const [selectedExercise, setSelectedExercise] = useState<SupportedExercise>(initialExercise);
+  const selectedExerciseRef = useRef<SupportedExercise>(initialExercise);
+  const analyzerRef = useRef(createExerciseAnalyzer(initialExercise));
   const confidenceSamplesRef = useRef<number[]>([]);
   const startedAtRef = useRef<Date | null>(null);
   const profileIdRef = useRef<string | null>(null);
-  const calibrationPhaseRef = useRef<CalibrationPhase>("idle");
-  const calibrationProfileRef = useRef<CalibrationProfile | null>(null);
-  const standingSamplesRef = useRef<CalibrationSample[]>([]);
-  const calibrationBoxesRef = useRef<NormalizedBox[]>([]);
-  const minimumDepthAngleRef = useRef<number | null>(null);
-  const [metrics, setMetrics] = useState<SquatMetrics>(initialMetrics);
+  const [metrics, setMetrics] = useState<AnalyzerSnapshot>(() => analyzerRef.current.snapshot());
   const [isTracking, setIsTracking] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [cameraMode, setCameraMode] = useState<CameraMode>(null);
   const [phoneSession, setPhoneSession] = useState<PhoneCameraSession | null>(null);
   const [phoneConnected, setPhoneConnected] = useState(false);
   const [phoneBaseUrl, setPhoneBaseUrl] = useState(() => window.location.origin);
-  const [calibrationPhase, setCalibrationPhase] = useState<CalibrationPhase>("idle");
-  const [calibrationProfile, setCalibrationProfile] = useState<CalibrationProfile | null>(null);
-  const [livePoseBox, setLivePoseBox] = useState<NormalizedBox | null>(null);
-  const [regionValid, setRegionValid] = useState(false);
-  const [distanceStatus, setDistanceStatus] = useState<"unknown" | "close" | "good" | "far">("unknown");
+  const [cameraGeometry, setCameraGeometry] = useState<CameraGeometry>(defaultCameraGeometry);
   const [error, setError] = useState<string | null>(null);
   const [savedSession, setSavedSession] = useState<WorkoutSession | null>(null);
   const [coachReview, setCoachReview] = useState<CoachReview | null>(null);
@@ -309,47 +149,79 @@ export function PoseCoachFeature() {
   }, [phoneBaseUrl, phoneSession]);
 
   const displayedActivityRegion = useMemo(() => {
-    if (calibrationProfile) {
-      return calibrationProfile.region;
+    if (metrics.calibrationProfile) {
+      return metrics.calibrationProfile.region;
     }
-    if (calibrationPhase === "standing" || calibrationPhase === "depth") {
-      return { x: 0.16, y: 0.05, width: 0.68, height: 0.9 };
+    if (metrics.calibrationPhase === "standing" || metrics.calibrationPhase === "depth") {
+      return selectedExercise === "squat"
+        ? { x: 0.16, y: 0.05, width: 0.68, height: 0.9 }
+        : { x: 0.05, y: 0.16, width: 0.9, height: 0.68 };
     }
     return null;
-  }, [calibrationPhase, calibrationProfile]);
+  }, [metrics.calibrationPhase, metrics.calibrationProfile, selectedExercise]);
+
+  const syncCameraGeometry = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || video.videoWidth <= 0 || video.videoHeight <= 0) return;
+    const width = video.videoWidth;
+    const height = video.videoHeight;
+    const nextGeometry = resolveCameraGeometry(width, height);
+    setCameraGeometry((current) =>
+      current.width === width && current.height === height
+        ? current
+        : nextGeometry
+    );
+  }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.addEventListener("loadedmetadata", syncCameraGeometry);
+    video.addEventListener("resize", syncCameraGeometry);
+    return () => {
+      video.removeEventListener("loadedmetadata", syncCameraGeometry);
+      video.removeEventListener("resize", syncCameraGeometry);
+    };
+  }, [syncCameraGeometry]);
+
+  const selectExercise = useCallback((exercise: SupportedExercise) => {
+    selectedExerciseRef.current = exercise;
+    setSelectedExercise(exercise);
+    analyzerRef.current = createExerciseAnalyzer(exercise);
+    setMetrics(analyzerRef.current.snapshot());
+    setSavedSession(null);
+    setCoachReview(null);
+    setError(null);
+    setSearchParams({ exercise }, { replace: true });
+  }, [setSearchParams]);
+
+  useEffect(() => {
+    if (isBusy || isTracking || phoneSession) return;
+    const exercise: SupportedExercise = requestedExercise === "push-up" ? "push-up" : "squat";
+    if (exercise === selectedExerciseRef.current) return;
+    selectedExerciseRef.current = exercise;
+    setSelectedExercise(exercise);
+    analyzerRef.current = createExerciseAnalyzer(exercise);
+    setMetrics(analyzerRef.current.snapshot());
+    setSavedSession(null);
+    setCoachReview(null);
+    setError(null);
+  }, [isBusy, isTracking, phoneSession, requestedExercise]);
 
   const resetSessionState = useCallback(() => {
-    phaseRef.current = "idle";
-    repsRef.current = 0;
     confidenceSamplesRef.current = [];
     startedAtRef.current = new Date();
     setSavedSession(null);
     setCoachReview(null);
-    setMetrics({
-      ...initialMetrics,
-      feedback: "Tracking is active. Stand tall once, then start a controlled squat."
-    });
+    const reset = analyzerRef.current.reset();
+    setMetrics({ ...reset, feedback: exerciseDefinitions[selectedExerciseRef.current].activeFeedback });
   }, []);
 
   const beginCalibration = useCallback(() => {
-    calibrationPhaseRef.current = "standing";
-    calibrationProfileRef.current = null;
-    standingSamplesRef.current = [];
-    calibrationBoxesRef.current = [];
-    minimumDepthAngleRef.current = null;
     confidenceSamplesRef.current = [];
-    phaseRef.current = "idle";
-    repsRef.current = 0;
     setSavedSession(null);
     setCoachReview(null);
-    setCalibrationPhase("standing");
-    setCalibrationProfile(null);
-    setRegionValid(false);
-    setDistanceStatus("unknown");
-    setMetrics({
-      ...initialMetrics,
-      feedback: "Calibration: stand tall and still with your full body visible."
-    });
+    setMetrics(analyzerRef.current.beginCalibration());
   }, []);
 
   const stopCamera = useCallback(() => {
@@ -358,6 +230,7 @@ export function PoseCoachFeature() {
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+    setCameraGeometry(defaultCameraGeometry);
   }, []);
 
   const stopPhoneConnection = useCallback(() => {
@@ -375,200 +248,27 @@ export function PoseCoachFeature() {
 
   const handlePose = useCallback((frame: PoseFrame) => {
     drawPose(canvasRef.current, activeSourceRef.current, frame);
-    const side = chooseSide(frame);
-    const box = poseBox(frame);
-    const currentBodyScale = bodyScale(side);
-    setLivePoseBox(box);
-    const kneeAngle =
-      side.hip && side.knee && side.ankle ? angleDegrees(side.hip, side.knee, side.ankle) : null;
-    const confidence = Math.min(frame.confidence, side.confidence);
-    confidenceSamplesRef.current.push(confidence);
+    const snapshot = analyzerRef.current.process(frame);
+    confidenceSamplesRef.current.push(snapshot.confidence);
     if (confidenceSamplesRef.current.length > 900) {
       confidenceSamplesRef.current.shift();
     }
-
-    if (confidence < 0.55 || kneeAngle === null) {
-      setMetrics({
-        confidence,
-        kneeAngle,
-        phase: phaseRef.current,
-        reps: repsRef.current,
-        feedback: "Cannot assess confidently. Step back and keep shoulder, hip, knee, and ankle visible."
-      });
-      return;
-    }
-
-    const calibrationStep = calibrationPhaseRef.current;
-    if (calibrationStep === "standing") {
-      if (!box || !currentBodyScale || box.height < 0.34 || kneeAngle < 145) {
-        setMetrics({
-          confidence,
-          kneeAngle,
-          phase: "idle",
-          reps: 0,
-          feedback: "Calibration: step back, stand tall, and keep your full body visible."
-        });
-        return;
-      }
-      standingSamplesRef.current.push({ box, kneeAngle, bodyScale: currentBodyScale });
-      if (standingSamplesRef.current.length < 36) {
-        setMetrics({
-          confidence,
-          kneeAngle,
-          phase: "idle",
-          reps: 0,
-          feedback: `Calibration: hold still (${Math.round((standingSamplesRef.current.length / 36) * 100)}%).`
-        });
-        return;
-      }
-      const standing = averageSample(standingSamplesRef.current);
-      calibrationBoxesRef.current = standingSamplesRef.current.map((sample) => sample.box);
-      calibrationPhaseRef.current = "depth";
-      setCalibrationPhase("depth");
-      setMetrics({
-        confidence,
-        kneeAngle,
-        phase: "idle",
-        reps: 0,
-        feedback: "Calibration: perform one comfortable squat, then stand tall."
-      });
-      return;
-    }
-
-    if (calibrationStep === "depth") {
-      if (!box) {
-        return;
-      }
-      calibrationBoxesRef.current.push(box);
-      const standing = averageSample(standingSamplesRef.current);
-      minimumDepthAngleRef.current = Math.min(minimumDepthAngleRef.current ?? kneeAngle, kneeAngle);
-      const minimumAngle = minimumDepthAngleRef.current;
-      const reachedDepth = minimumAngle <= standing.angle - 28;
-      const returnedToStanding = kneeAngle >= standing.angle - 10;
-      if (reachedDepth && returnedToStanding) {
-        const profile: CalibrationProfile = {
-          region: activityRegion(calibrationBoxesRef.current),
-          standingAngle: Math.round(standing.angle),
-          depthAngle: Math.round(minimumAngle),
-          referenceScale: standing.bodyScale
-        };
-        calibrationProfileRef.current = profile;
-        calibrationPhaseRef.current = "complete";
-        setCalibrationProfile(profile);
-        setCalibrationPhase("complete");
-        phaseRef.current = "standing_ready";
-        if (profileIdRef.current) {
-          void apiClient.savePoseEvent({
-            profileId: profileIdRef.current,
-            eventType: "calibration_completed",
-            metadata: {
-              exercise: "squat",
-              standingAngle: profile.standingAngle,
-              depthAngle: profile.depthAngle,
-              referenceScale: Number(profile.referenceScale.toFixed(4)),
-              activityRegion: profile.region
-            }
-          });
+    if (snapshot.calibrationCompleted && profileIdRef.current && snapshot.calibrationProfile) {
+      const profile = snapshot.calibrationProfile;
+      void apiClient.savePoseEvent({
+        profileId: profileIdRef.current,
+        eventType: "calibration_completed",
+        metadata: {
+          exercise: selectedExerciseRef.current,
+          topAngle: profile.topAngle,
+          depthAngle: profile.depthAngle,
+          referenceScale: Number(profile.referenceScale.toFixed(4)),
+          referenceDepth: profile.referenceDepth === null ? null : Number(profile.referenceDepth.toFixed(4)),
+          activityRegion: profile.region
         }
-        setMetrics({
-          confidence,
-          kneeAngle,
-          phase: "standing_ready",
-          reps: 0,
-          feedback: "Calibration complete. Stay inside the activity box and begin when ready."
-        });
-      } else {
-        setMetrics({
-          confidence,
-          kneeAngle,
-          phase: "idle",
-          reps: 0,
-          feedback: reachedDepth
-            ? "Calibration: return to a tall standing position."
-            : "Calibration: squat to a comfortable depth."
-        });
-      }
-      return;
-    }
-
-    const profile = calibrationProfileRef.current;
-    if (!profile || !box || !currentBodyScale) {
-      setMetrics({
-        confidence,
-        kneeAngle,
-        phase: phaseRef.current,
-        reps: repsRef.current,
-        feedback: "Calibrate the activity area before starting counted reps."
       });
-      return;
     }
-
-    const scaleRatio = currentBodyScale / profile.referenceScale;
-    const insideRegion = boxInsideRegion(box, profile.region);
-    const nextDistanceStatus = scaleRatio > 1.32 ? "close" : scaleRatio < 0.72 ? "far" : "good";
-    setRegionValid(insideRegion);
-    setDistanceStatus(nextDistanceStatus);
-
-    if (!insideRegion) {
-      setMetrics({
-        confidence,
-        kneeAngle,
-        phase: phaseRef.current,
-        reps: repsRef.current,
-        feedback: "Move your full body back inside the calibrated activity box."
-      });
-      return;
-    }
-    if (nextDistanceStatus !== "good") {
-      setMetrics({
-        confidence,
-        kneeAngle,
-        phase: phaseRef.current,
-        reps: repsRef.current,
-        feedback:
-          nextDistanceStatus === "close"
-            ? "You are closer than calibration. Step slightly away from the camera."
-            : "You are farther than calibration. Step slightly toward the camera."
-      });
-      return;
-    }
-
-    let nextPhase = phaseRef.current;
-    let feedback = "Stand tall, then descend slowly.";
-    const standingThreshold = profile.standingAngle - 9;
-    const descentThreshold = profile.standingAngle - Math.max(18, (profile.standingAngle - profile.depthAngle) * 0.3);
-    const bottomThreshold = profile.depthAngle + 8;
-    const ascentThreshold = profile.depthAngle + 18;
-
-    if (nextPhase === "idle" && kneeAngle > standingThreshold) {
-      nextPhase = "standing_ready";
-      feedback = "Ready. Start a slow squat when stable.";
-    } else if (nextPhase === "standing_ready" && kneeAngle < descentThreshold) {
-      nextPhase = "descending";
-      feedback = "Descending. Keep your movement controlled.";
-    } else if (nextPhase === "descending" && kneeAngle < bottomThreshold) {
-      nextPhase = "bottom";
-      feedback = "Good depth. Drive up smoothly.";
-    } else if (nextPhase === "bottom" && kneeAngle > ascentThreshold) {
-      nextPhase = "ascending";
-      feedback = "Ascending. Keep knees tracking steadily.";
-    } else if (nextPhase === "ascending" && kneeAngle > standingThreshold) {
-      nextPhase = "standing_ready";
-      repsRef.current += 1;
-      feedback = "Rep counted. Reset tall before the next rep.";
-    } else if (nextPhase === "descending" && kneeAngle > standingThreshold) {
-      nextPhase = "standing_ready";
-      feedback = "That rep was too shallow to count. Try a little more depth if comfortable.";
-    }
-
-    phaseRef.current = nextPhase;
-    setMetrics({
-      confidence,
-      kneeAngle,
-      phase: nextPhase,
-      reps: repsRef.current,
-      feedback
-    });
+    setMetrics(snapshot);
   }, [apiClient]);
 
   useEffect(() => poseEstimator.onPose(handlePose), [handlePose, poseEstimator]);
@@ -622,6 +322,7 @@ export function PoseCoachFeature() {
       }
       video.srcObject = event.streams[0] ?? new MediaStream([event.track]);
       void video.play().then(async () => {
+        syncCameraGeometry();
         if (phoneTrackingStartedRef.current) {
           return;
         }
@@ -632,7 +333,7 @@ export function PoseCoachFeature() {
         await apiClient.savePoseEvent({
           profileId,
           eventType: "session_started",
-          metadata: { exercise: "squat", source: "phone_webrtc" }
+          metadata: { exercise: selectedExerciseRef.current, source: "phone_webrtc" }
         });
         startedAtRef.current = new Date();
         setPhoneConnected(true);
@@ -705,10 +406,10 @@ export function PoseCoachFeature() {
       stopPhoneConnection();
       activeSourceRef.current = null;
       resetSessionState();
-      setMetrics({
-        ...initialMetrics,
+      setMetrics((current) => ({
+        ...current,
         feedback: "Scan the QR code and start sharing from your phone. Tracking begins with the first frame."
-      });
+      }));
       setCameraMode("phone");
       setPhoneConnected(false);
 
@@ -756,6 +457,7 @@ export function PoseCoachFeature() {
       }
       video.srcObject = stream;
       await video.play();
+      syncCameraGeometry();
       activeSourceRef.current = video;
       await poseEstimator.load();
       await poseEstimator.start(video);
@@ -764,7 +466,7 @@ export function PoseCoachFeature() {
       await apiClient.savePoseEvent({
         profileId,
         eventType: "session_started",
-        metadata: { exercise: "squat", source: "browser_pose" }
+        metadata: { exercise: selectedExerciseRef.current, source: "browser_pose" }
       });
 
       setIsTracking(true);
@@ -800,17 +502,10 @@ export function PoseCoachFeature() {
       setPhoneConnected(false);
       setCameraMode(null);
       setPhoneSession(null);
-      calibrationPhaseRef.current = "idle";
-      calibrationProfileRef.current = null;
-      setCalibrationPhase("idle");
-      setCalibrationProfile(null);
-      setLivePoseBox(null);
-      setRegionValid(false);
-      setDistanceStatus("unknown");
 
       if (!shouldSaveSession || !startedAtRef.current) {
         startedAtRef.current = null;
-        setMetrics(initialMetrics);
+        setMetrics(analyzerRef.current.reset());
         return;
       }
 
@@ -825,13 +520,14 @@ export function PoseCoachFeature() {
       const samples = confidenceSamplesRef.current;
       const confidenceAvg =
         samples.length > 0 ? samples.reduce((total, sample) => total + sample, 0) / samples.length : 0;
+      const finalSnapshot = analyzerRef.current.snapshot();
       const session = await apiClient.saveWorkoutSession({
         profileId,
-        exercise: "squat",
+        exercise: selectedExerciseRef.current,
         durationSeconds,
-        repsCompleted: repsRef.current,
+        repsCompleted: finalSnapshot.reps,
         confidenceAvg: Number(confidenceAvg.toFixed(3)),
-        completionStatus: repsRef.current > 0 ? "completed" : "partial",
+        completionStatus: finalSnapshot.reps > 0 ? "completed" : "partial",
         safetyFlag: false,
         startedAt: startedAt.toISOString(),
         endedAt: endedAt.toISOString()
@@ -843,7 +539,11 @@ export function PoseCoachFeature() {
         sessionId: session.id,
         eventType: "session_completed",
         confidence: Number(confidenceAvg.toFixed(3)),
-        metadata: { repsCompleted: repsRef.current, durationSeconds }
+        metadata: {
+          exercise: selectedExerciseRef.current,
+          repsCompleted: finalSnapshot.reps,
+          durationSeconds
+        }
       });
 
       const review = await apiClient.createCoachReview({ profileId, sessionId: session.id });
@@ -861,33 +561,61 @@ export function PoseCoachFeature() {
         <StatusPill tone={statusTone}>
           {isTracking ? "Tracking live" : phoneSession ? "Waiting for phone" : error ? "Needs attention" : "Ready"}
         </StatusPill>
-        <h1>Live squat pose coach</h1>
+        <h1>{exerciseDefinitions[selectedExercise].heading}</h1>
         <p>
           Camera video is processed in this browser. Phone video travels over an encrypted direct WebRTC
           connection; only the derived session summary and coach review are saved.
         </p>
       </div>
 
+      <div className="exercise-selector" aria-label="Choose an exercise">
+        {(["squat", "push-up"] as const).map((exercise) => (
+          <button
+            key={exercise}
+            type="button"
+            className={selectedExercise === exercise ? "is-active" : ""}
+            onClick={() => selectExercise(exercise)}
+            disabled={isBusy || isTracking || Boolean(phoneSession)}
+          >
+            <strong>{exerciseDefinitions[exercise].name}</strong>
+            <span>{exercise === "squat" ? "Standing lower-body coaching" : "Side-view floor coaching"}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="pose-coach__workspace">
-        <div className={`pose-stage${cameraMode === "phone" ? " pose-stage--phone" : ""}`}>
-          <video ref={videoRef} className="pose-stage__video" playsInline muted />
+        <div
+          className={`pose-stage pose-stage--${cameraGeometry.orientation}${
+            cameraMode ? " pose-stage--active" : ""
+          }${cameraMode === "phone" ? " pose-stage--phone" : ""}`}
+          style={{
+            aspectRatio: `${cameraGeometry.width} / ${cameraGeometry.height}`,
+            maxWidth:
+              cameraGeometry.orientation === "portrait"
+                ? `min(100%, calc(78vh * ${cameraGeometry.aspectRatio}))`
+                : "100%"
+          }}
+          data-camera-width={cameraGeometry.width}
+          data-camera-height={cameraGeometry.height}
+        >
+          <video ref={videoRef} className="pose-stage__video" autoPlay playsInline muted />
           <canvas ref={canvasRef} className="pose-stage__canvas" aria-hidden="true" />
           {displayedActivityRegion && (
             <div
-              className={`activity-region activity-region--${calibrationPhase}${
-                calibrationPhase === "complete" && !regionValid ? " activity-region--warning" : ""
+              className={`activity-region activity-region--${metrics.calibrationPhase}${
+                metrics.calibrationPhase === "complete" && !metrics.regionValid ? " activity-region--warning" : ""
               }`}
               style={boxStyle(displayedActivityRegion, cameraMode === "local")}
             >
               <span>
-                {calibrationPhase === "complete" ? "Activity area" : "Stand inside this area"}
+                {metrics.calibrationPhase === "complete" ? "Activity area" : "Set up inside this area"}
               </span>
             </div>
           )}
-          {isTracking && livePoseBox && (
+          {isTracking && metrics.livePoseBox && (
             <div
-              className={`live-pose-box${regionValid ? " live-pose-box--valid" : ""}`}
-              style={boxStyle(livePoseBox, cameraMode === "local")}
+              className={`live-pose-box${metrics.regionValid ? " live-pose-box--valid" : ""}`}
+              style={boxStyle(metrics.livePoseBox, cameraMode === "local")}
               aria-hidden="true"
             />
           )}
@@ -899,10 +627,11 @@ export function PoseCoachFeature() {
         </div>
 
         <aside className="pose-readout">
-          <AnimatedSquatCoach
+          <AnimatedExerciseCoach
+            exercise={selectedExercise}
             phase={metrics.phase}
             confidence={metrics.confidence}
-            kneeAngle={metrics.kneeAngle}
+            primaryAngle={metrics.primaryAngle}
             isTracking={isTracking}
           />
           <div className="metric-tile">
@@ -910,8 +639,8 @@ export function PoseCoachFeature() {
             <strong>{metrics.reps}</strong>
           </div>
           <div className="metric-tile">
-            <span>Knee angle</span>
-            <strong>{metrics.kneeAngle === null ? "--" : `${metrics.kneeAngle} deg`}</strong>
+            <span>{metrics.primaryAngleLabel}</span>
+            <strong>{metrics.primaryAngle === null ? "--" : `${metrics.primaryAngle} deg`}</strong>
           </div>
           <div className="metric-tile">
             <span>Confidence</span>
@@ -925,15 +654,23 @@ export function PoseCoachFeature() {
             <div>
               <ScanLine size={19} aria-hidden="true" />
               <span>Calibration</span>
-              <strong>{calibrationPhase}</strong>
+              <strong>{metrics.calibrationPhase}</strong>
             </div>
             <div>
               <span>Camera depth</span>
-              <strong>{distanceStatus}</strong>
+              <strong>{metrics.distanceStatus}</strong>
             </div>
-            {calibrationProfile && (
+            <div>
+              <span>Counting</span>
+              <strong>{metrics.repGateStatus.replaceAll("_", " ")}</strong>
+            </div>
+            {metrics.qualityReasons.length > 0 && (
+              <small>{metrics.qualityReasons.map((reason) => reason.replaceAll("_", " ")).join(" / ")}</small>
+            )}
+            {metrics.calibrationProfile && (
               <small>
-                Standing {calibrationProfile.standingAngle} deg / target depth {calibrationProfile.depthAngle} deg
+                Top {metrics.calibrationProfile.topAngle} deg / target depth {metrics.calibrationProfile.depthAngle} deg
+                {metrics.calibrationProfile.referenceDepth === null ? " / scale-only depth" : " / relative depth locked"}
               </small>
             )}
           </div>

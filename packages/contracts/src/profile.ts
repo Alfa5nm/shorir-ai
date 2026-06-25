@@ -19,6 +19,11 @@ export interface Profile {
   equipment: EquipmentOption[];
   weeklySchedule: string[];
   safety: SafetyFlags;
+  height?: number | undefined;
+  weight?: number | undefined;
+  targetWeight?: number | undefined;
+  age?: number | undefined;
+  gender?: "male" | "female" | "other" | undefined;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,4 +36,9 @@ export interface ProfileInput {
   equipment: EquipmentOption[];
   weeklySchedule: string[];
   safety: SafetyFlags;
+  height?: number | undefined;
+  weight?: number | undefined;
+  targetWeight?: number | undefined;
+  age?: number | undefined;
+  gender?: "male" | "female" | "other" | undefined;
 }

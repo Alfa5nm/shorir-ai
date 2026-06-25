@@ -147,3 +147,12 @@
 - Tune squat thresholds after physical movement testing.
 - Add QR meal upload flow implementation.
 - Add a real Gemini smoke test once API key or ADC credentials are available in local env.
+
+## 2026-06-24 - Push-up coaching vertical slice
+
+- Added a reusable browser-side exercise analyzer boundary and moved squat calibration/counting behind it.
+- Added personalized standard floor push-up calibration, ordered rep counting, alignment feedback, and adaptive animation.
+- Added squat/push-up selection, deep links, bilingual exercise guides, exercise-aware persistence, and progress copy.
+- Added deterministic Vitest analyzer coverage and CI test execution.
+- Added a Supabase migration allowing `calibration_completed` pose events.
+- Verified typecheck, lint, tests, production build, desktop browser layout, and mobile responsive layout.

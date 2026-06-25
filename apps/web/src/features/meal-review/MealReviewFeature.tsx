@@ -15,7 +15,13 @@ function MealReviewResult({ review }: { review: MealReview }) {
       <StatusPill tone="success">Review ready</StatusPill>
       <h2>{review.probableDishes.length ? review.probableDishes.join(", ") : "Meal review"}</h2>
       <p>Confidence: {review.confidenceLevel}. This is a visual estimate, not a medical assessment.</p>
+      <p className="calorie-estimate">Estimated calories: {review.calorieRange ?? "Needs portion confirmation"}</p>
       <div className="meal-result__grid">
+        <article>
+          <h3>Calorie range</h3>
+          <strong>{review.calorieRange ?? "Needs portion confirmation"}</strong>
+          <p>Use this as a rough planning range only; oil, portion size, and mixed ingredients can change it.</p>
+        </article>
         <article>
           <h3>Macro notes</h3>
           <ul>{review.macroNotes.map((note) => <li key={note}>{note}</li>)}</ul>
@@ -119,8 +125,8 @@ export function MealReviewFeature() {
     <section className="meal-review">
       <header className="feature-header">
         <StatusPill tone={review ? "success" : "neutral"}>{review ? "Processed" : "Meal image"}</StatusPill>
-        <h1>Cautious meal review</h1>
-        <p>Upload one clear meal photo. SHORIR returns probable dishes, questions, and limitations rather than certainty.</p>
+        <h1>Calorie and meal check</h1>
+        <p>Upload one clear meal photo. SHORIR returns probable dishes, a cautious calorie range, questions, and limitations rather than certainty.</p>
       </header>
 
       <div className="meal-workspace">
@@ -142,7 +148,7 @@ export function MealReviewFeature() {
             </label>
             <button type="button" onClick={createPhoneUpload} disabled={isBusy}>
               <Smartphone size={18} />
-              Upload from phone
+              Capture from phone
             </button>
           </div>
           <small>JPEG, PNG, or WebP. Maximum 6 MB.</small>
@@ -153,7 +159,7 @@ export function MealReviewFeature() {
           <aside className="meal-qr">
             <QRCodeSVG value={captureUrl} size={190} level="M" />
             <h2>Scan with your phone</h2>
-            <p>Choose a meal photo on the phone. This screen updates when processing finishes.</p>
+            <p>Choose or capture a meal photo on the phone. This screen updates with the calorie check when processing finishes.</p>
           </aside>
         )}
       </div>
