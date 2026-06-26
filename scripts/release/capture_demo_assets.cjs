@@ -4,9 +4,11 @@ const { chromium } = require("playwright");
 
 const rootDir = path.resolve(__dirname, "../..");
 const outputDir = path.join(rootDir, "deliverables", "demo-frames");
+const publicFramesDir = path.join(rootDir, "apps", "web", "public", "demo-frames");
 const baseUrl = process.env.DEMO_BASE_URL || "http://localhost:4173";
 
 const frames = [
+  { id: "00-onboarding", route: "/onboarding", title: "Onboarding" },
   { id: "01-dashboard", route: "/", title: "Dashboard" },
   { id: "02-demo", route: "/demo", title: "Demo sequence" },
   { id: "03-coach", route: "/coach?exercise=squat", title: "Pose Coach" },
@@ -20,6 +22,7 @@ const frames = [
 async function capture() {
   await fs.rm(outputDir, { recursive: true, force: true });
   await fs.mkdir(outputDir, { recursive: true });
+  await fs.mkdir(publicFramesDir, { recursive: true });
 
   const browser = await chromium.launch({
     executablePath: process.env.CHROME_PATH || undefined
@@ -35,7 +38,9 @@ async function capture() {
     await page.goto(`${baseUrl}${frame.route}`, { waitUntil: "networkidle" });
     await page.waitForTimeout(700);
     const fileName = `${frame.id}.png`;
-    await page.screenshot({ path: path.join(outputDir, fileName), fullPage: false });
+    const outputPath = path.join(outputDir, fileName);
+    await page.screenshot({ path: outputPath, fullPage: false });
+    await fs.copyFile(outputPath, path.join(publicFramesDir, fileName));
     manifest.push({ ...frame, fileName });
   }
 

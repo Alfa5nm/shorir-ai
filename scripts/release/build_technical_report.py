@@ -236,7 +236,7 @@ add_table(doc, ["Module", "Implemented capability"], [
     ("Diet Chart", "Bangladeshi meal template scaled to profile-based calorie and macro targets."),
     ("Calorie Check", "Desktop upload and QR/phone capture with cautious structured meal review."),
     ("Progress", "Saved sessions, review history, and detection-quality diagnostics."),
-    ("Demo", "First-time judging walkthrough, presenter script, and acceptance checks."),
+    ("Demo", "Interactive guided tour with real app frames, focal highlights, cursor motion, and presenter controls."),
 ], [1.45, 5.05])
 add_figure(doc, FRAMES / "01-dashboard.png", "Figure 1. Coordinated dashboard with light theme and competition branding.")
 
@@ -251,7 +251,7 @@ add_bullets(doc, [
 ])
 
 add_heading(doc, "3.1 Demo Sequence", 2)
-add_body(doc, "The live product now includes a dedicated /demo route. It replaces the earlier placeholder presentation/report tabs with a practical first-time walkthrough, presenter script, and acceptance checklist.")
+add_body(doc, "The live product now includes a dedicated /demo route. It replaces static walkthrough panels with an auto-playing guided tour that uses real app frames, focal highlights, cursor movement, captions, and pause/back/next controls.")
 add_table(doc, ["Step", "Route", "Purpose"], [
     ("1", "/onboarding", "Create a clean profile."),
     ("2", "/", "Review today's plan and shortcuts."),
@@ -262,7 +262,7 @@ add_table(doc, ["Step", "Route", "Purpose"], [
     ("7", "/progress", "Close with saved session diagnostics."),
     ("8", "/about-competition", "Show submission package."),
 ], [0.55, 2.15, 3.8])
-add_figure(doc, FRAMES / "02-demo.png", "Figure 2. First-time demo sequence with walkthrough, presenter script, and acceptance checks.")
+add_figure(doc, FRAMES / "02-demo.png", "Figure 2. Interactive demo tour with focal highlight, cursor pointer, and presenter controls.")
 
 add_heading(doc, "4. System Architecture", 1)
 add_body(doc, "SHORIR AI is a PNPM TypeScript monorepo. Shared contracts keep browser and API wire shapes aligned, while ports isolate external technology choices.")

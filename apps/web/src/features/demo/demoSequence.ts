@@ -1,87 +1,124 @@
 import { Activity, Apple, BarChart3, Camera, CheckCircle2, Dumbbell, ScanLine, Settings2 } from "lucide-react";
 import type { ComponentType } from "react";
 
-export interface DemoStep {
+export interface DemoPoint {
+  x: number;
+  y: number;
+}
+
+export interface DemoTargetRect extends DemoPoint {
+  width: number;
+  height: number;
+}
+
+export interface DemoScene {
   id: string;
   title: string;
   route: string;
-  action: string;
-  result: string;
-  presenterCue: string;
+  frame: string;
+  caption: string;
+  callout: string;
+  targetRect: DemoTargetRect;
+  cursorPath: [DemoPoint, DemoPoint];
+  durationMs: number;
   icon: ComponentType<{ size?: number; "aria-hidden"?: boolean | "true" | "false" }>;
 }
 
-export const demoSequence: DemoStep[] = [
+export const demoSequence: DemoScene[] = [
   {
     id: "profile",
-    title: "Create a clean profile",
+    title: "Profile setup",
     route: "/onboarding",
-    action: "Enter goal, training days, equipment, body metrics, and safety notes.",
-    result: "The product personalizes training and diet without requiring an account.",
-    presenterCue: "Start here so every following screen feels tailored.",
+    frame: "/demo-frames/00-onboarding.png",
+    caption: "The first touchpoint starts with one guided profile layer instead of a long setup wall.",
+    callout: "Language, goal, schedule, body metrics, and safety all become personalized context.",
+    targetRect: { x: 6, y: 22, width: 40, height: 46 },
+    cursorPath: [{ x: 86, y: 24 }, { x: 25, y: 48 }],
+    durationMs: 6200,
     icon: Settings2
   },
   {
     id: "dashboard",
-    title: "Review today's plan",
+    title: "Daily command center",
     route: "/",
-    action: "Open the dashboard and scan the plan, time estimate, and shortcuts.",
-    result: "The first screen answers what to do next.",
-    presenterCue: "This is the home base for a first-time user.",
+    frame: "/demo-frames/01-dashboard.png",
+    caption: "The dashboard answers the first user question immediately: what should I do next?",
+    callout: "Plan cards, safety context, and shortcuts stay scan-friendly for first-time users.",
+    targetRect: { x: 5, y: 20, width: 54, height: 34 },
+    cursorPath: [{ x: 80, y: 20 }, { x: 32, y: 36 }],
+    durationMs: 6000,
     icon: Activity
   },
   {
     id: "coach",
-    title: "Run a strict coached set",
+    title: "Strict pose coach",
     route: "/coach?exercise=squat",
-    action: "Choose squat, push-up, or lunge; start camera; follow the live cue.",
-    result: "Only stable, ordered, full-depth repetitions are counted.",
-    presenterCue: "Show the stage, rep rail, and Guide/Setup/Diagnostics tabs.",
+    frame: "/demo-frames/03-coach.png",
+    caption: "Camera, movement guide, and rep controls are separated so testers see exactly what is being judged.",
+    callout: "False reps are avoided with quality gates, stable posture, and ordered movement phases.",
+    targetRect: { x: 3, y: 27, width: 47, height: 36 },
+    cursorPath: [{ x: 88, y: 30 }, { x: 38, y: 42 }],
+    durationMs: 6800,
     icon: Camera
   },
   {
     id: "library",
-    title: "Check movement guidance",
+    title: "Movement library",
     route: "/exercise-library",
-    action: "Filter exercises and open a guide with setup, safety, and camera notes.",
-    result: "Beginners can learn before starting live tracking.",
-    presenterCue: "Use the live coach link from a supported guide.",
+    frame: "/demo-frames/04-exercises.png",
+    caption: "The exercise library gives setup, safety, and camera guidance before the live coach starts.",
+    callout: "Supported guides can jump directly into the strict live coach route.",
+    targetRect: { x: 32, y: 24, width: 53, height: 48 },
+    cursorPath: [{ x: 14, y: 28 }, { x: 73, y: 50 }],
+    durationMs: 6000,
     icon: Dumbbell
   },
   {
     id: "diet",
-    title: "Generate the diet chart",
+    title: "Bangladeshi diet chart",
     route: "/diet-chart",
-    action: "Open personalized Bangladeshi meals and macro targets.",
-    result: "Food planning uses familiar meals instead of generic global examples.",
-    presenterCue: "Call out that it is planning guidance, not medical advice.",
+    frame: "/demo-frames/05-diet.png",
+    caption: "Nutrition feels local: familiar meals, calorie ranges, and macros are organized into a calm plan.",
+    callout: "The product stays clear that this is planning guidance, not medical advice.",
+    targetRect: { x: 5, y: 26, width: 88, height: 34 },
+    cursorPath: [{ x: 82, y: 20 }, { x: 49, y: 42 }],
+    durationMs: 5900,
     icon: Apple
   },
   {
     id: "calorie",
-    title: "Check calories from a photo",
+    title: "Calorie check",
     route: "/calorie-check",
-    action: "Upload from desktop or scan the QR to capture from phone.",
-    result: "The AI returns cautious calories, macros, confidence, and next action.",
-    presenterCue: "Show both upload and phone capture paths.",
+    frame: "/demo-frames/06-calorie.png",
+    caption: "Food review supports desktop upload and phone capture without forcing a separate mobile app.",
+    callout: "The result emphasizes cautious estimates, confidence, and next action.",
+    targetRect: { x: 5, y: 30, width: 66, height: 44 },
+    cursorPath: [{ x: 83, y: 24 }, { x: 37, y: 54 }],
+    durationMs: 6200,
     icon: ScanLine
   },
   {
     id: "progress",
-    title: "Close with progress",
+    title: "Progress review",
     route: "/progress",
-    action: "Review saved sessions, coach reviews, and detection quality.",
-    result: "The user sees what was accepted, paused, and improved.",
-    presenterCue: "End here to show the product loop is complete.",
+    frame: "/demo-frames/07-progress.png",
+    caption: "Progress closes the loop by showing sessions, coach reviews, and detector quality trends.",
+    callout: "Users can see what was accepted, paused, rejected, and improved over time.",
+    targetRect: { x: 4, y: 24, width: 90, height: 48 },
+    cursorPath: [{ x: 88, y: 26 }, { x: 54, y: 48 }],
+    durationMs: 5900,
     icon: BarChart3
   },
   {
     id: "submission",
     title: "Submission package",
     route: "/about-competition",
-    action: "Use the live URL, refreshed deck, technical report, and source ZIP.",
-    result: "All required CodeFront submission artifacts are ready.",
-    presenterCue: "Close by showing the generated deliverables.",
+    frame: "/demo-frames/08-submission.png",
+    caption: "The final screen proves the live URL, deck, technical report, demo video, and source package exist.",
+    callout: "Judges get a complete product story and a complete delivery package.",
+    targetRect: { x: 8, y: 24, width: 58, height: 52 },
+    cursorPath: [{ x: 88, y: 22 }, { x: 46, y: 50 }],
+    durationMs: 6200,
     icon: CheckCircle2
   }
 ];

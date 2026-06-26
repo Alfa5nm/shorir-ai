@@ -1,64 +1,54 @@
-# SHORIR AI Demo Sequence
+# SHORIR AI Interactive Demo Sequence
 
 Live website: https://shorir-ai-production.up.railway.app
 
-Use this sequence for a first-time judging walkthrough. It is designed to take 4-5 minutes and shows the complete product loop without exposing every diagnostic panel at once.
+Use `/demo` as the main presentation surface. The route auto-plays through the product loop with real app frames, animated cursor movement, focal highlights, and presenter-safe pause/back/next controls.
 
-## Walkthrough
+## Guided Tour Scenes
 
-1. Create a clean profile
-   - Route: `/onboarding`
-   - Action: enter goal, training days, equipment, body metrics, and safety notes.
-   - Result: SHORIR AI personalizes training and diet without requiring an account.
+1. Profile setup - `/onboarding`
+   - Focus: the layered onboarding form.
+   - Message: language, goal, schedule, body metrics, and safety become personalization context.
 
-2. Review today's plan
-   - Route: `/`
-   - Action: open the dashboard and scan the plan, time estimate, and shortcuts.
-   - Result: the first screen answers what the user should do next.
+2. Daily command center - `/`
+   - Focus: the dashboard plan area.
+   - Message: the first screen answers what the user should do next.
 
-3. Run a strict coached set
-   - Route: `/coach?exercise=squat`
-   - Action: choose squat, push-up, or lunge; start camera; follow the live cue.
-   - Result: only stable, ordered, full-depth repetitions are counted.
+3. Strict pose coach - `/coach?exercise=squat`
+   - Focus: camera viewport and guided coaching workspace.
+   - Message: stable posture and ordered movement are required before reps count.
 
-4. Check movement guidance
-   - Route: `/exercise-library`
-   - Action: filter exercises and open a guide with setup, safety, and camera notes.
-   - Result: beginners can learn before starting live tracking.
+4. Movement library - `/exercise-library`
+   - Focus: guide details and coach entry points.
+   - Message: beginners can learn setup, camera position, and safety before tracking.
 
-5. Generate the diet chart
-   - Route: `/diet-chart`
-   - Action: open personalized Bangladeshi meals and macro targets.
-   - Result: food planning uses familiar meals instead of generic global examples.
+5. Bangladeshi diet chart - `/diet-chart`
+   - Focus: local meal plan and macro sections.
+   - Message: nutrition planning uses familiar foods while staying advisory.
 
-6. Check calories from a photo
-   - Route: `/calorie-check`
-   - Action: upload from desktop or scan the QR to capture from phone.
-   - Result: the AI returns cautious calories, macros, confidence, and next action.
+6. Calorie check - `/calorie-check`
+   - Focus: upload and phone-capture review flow.
+   - Message: meal analysis returns cautious estimates, confidence, and next action.
 
-7. Close with progress
-   - Route: `/progress`
-   - Action: review saved sessions, coach reviews, and detection quality.
-   - Result: the user sees what was accepted, paused, and improved.
+7. Progress review - `/progress`
+   - Focus: session history and detector quality.
+   - Message: users see what was accepted, paused, rejected, and improved.
 
-8. Submission package
-   - Route: `/about-competition`
-   - Action: show the live URL, refreshed deck, technical report, demo video, and source ZIP.
-   - Result: all required CodeFront submission artifacts are ready.
+8. Submission package - `/about-competition`
+   - Focus: competition and artifact summary.
+   - Message: the live link, deck, report, demo video, and source package are ready.
 
-## Presenter Notes
+## Presenter Flow
 
-- Open with the dashboard and explain that the product is a privacy-aware fitness assistant.
-- Use the coach screen to show the main innovation: strict pose validation before counting reps.
-- Use the Guide, Setup, Diagnostics, and Review tabs to show detail only when needed.
-- Show the calorie route after movement coaching to prove the product covers both exercise and nutrition.
-- End on progress history and the generated submission deliverables.
+- Let the tour auto-play for the first pass, then pause on Pose Coach for the core technical explanation.
+- Use Back/Next when judges ask about a route; use Open live route only when deeper inspection is needed.
+- Keep the story product-led: onboarding creates context, coaching validates movement, nutrition supports daily use, progress closes the loop.
+- Reduced-motion users still see static focal highlights without cursor travel or animated progress.
 
 ## Acceptance Checks
 
-- The header stays compact and does not dominate the first viewport.
-- The camera stage is visible without scrolling on a typical laptop viewport.
-- Start, stop, confidence, phase, and rep count remain visible during coaching.
-- Phone QR capture remains accessible inside setup and calorie flows.
-- Dark mode remains readable.
-- Reduced-motion users do not receive scroll reveal animation.
+- `/demo` does not show static instruction cards or action/result grids.
+- The active route frame, focal highlight, cursor, caption, and progress bar are visible on desktop and mobile.
+- Controls remain clickable and captions do not block the active focus point.
+- Light mode, dark mode, and reduced-motion mode remain readable.
+- Release frames, video, presentation, report, and source ZIP are regenerated from the updated UI.

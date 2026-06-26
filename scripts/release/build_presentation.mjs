@@ -153,14 +153,14 @@ async function build() {
   slide = deck.slides.add();
   slide.background.fill = C.bg;
   addHeader(slide, "Demo sequence");
-  addText(slide, "Show it in eight steps", { left: 58, top: 112, width: 540, height: 58 }, { fontSize: 44, bold: true });
+  addText(slide, "Guide it like a product tour", { left: 58, top: 112, width: 540, height: 94 }, { fontSize: 42, bold: true });
   await addScreenshot(slide, "02-demo.png", { left: 520, top: 110, width: 675, height: 430 }, "Demo sequence route");
   addBullets(slide, [
-    "Start with onboarding and dashboard context.",
-    "Demonstrate strict pose coaching and hidden diagnostics.",
-    "Move through exercise guidance, diet, calorie photo review, and progress.",
-    "Close on the generated submission package."
-  ], 70, 218, 400);
+    "Auto-play through real app frames with focal highlights.",
+    "Use cursor motion and captions to point out the story.",
+    "Pause on Pose Coach for the strict-rep explanation.",
+    "Open a live route only when judges want deeper inspection."
+  ], 70, 238, 400);
 
   slide = deck.slides.add();
   slide.background.fill = C.bg;

@@ -1,5 +1,11 @@
 [
   {
+    "id": "00-onboarding",
+    "route": "/onboarding",
+    "title": "Onboarding",
+    "fileName": "00-onboarding.png"
+  },
+  {
     "id": "01-dashboard",
     "route": "/",
     "title": "Dashboard",
