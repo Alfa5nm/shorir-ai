@@ -3,9 +3,6 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { HomeRoute } from "../routes/HomeRoute";
 
-const AboutCompetitionRoute = lazy(() =>
-  import("../routes/AboutCompetitionRoute").then((module) => ({ default: module.AboutCompetitionRoute }))
-);
 const CoachRoute = lazy(() =>
   import("../routes/CoachRoute").then((module) => ({ default: module.CoachRoute }))
 );
@@ -51,7 +48,7 @@ export function AppRouter() {
             <Route path="/calorie-check" element={<MealRoute />} />
             <Route path="/capture/:id" element={<QrCaptureRoute />} />
             <Route path="/phone-camera/:id" element={<PhoneCameraRoute />} />
-            <Route path="/about-competition" element={<AboutCompetitionRoute />} />
+            <Route path="*" element={<HomeRoute />} />
           </Routes>
         </Suspense>
       </AppLayout>

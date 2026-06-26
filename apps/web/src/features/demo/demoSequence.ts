@@ -112,9 +112,9 @@ export const demoSequence: DemoScene[] = [
   {
     id: "submission",
     title: "Submission package",
-    route: "/about-competition",
+    route: "/demo?scene=submission",
     frame: "/demo-frames/08-submission.png",
-    caption: "The final screen proves the live URL, deck, technical report, demo video, and source package exist.",
+    caption: "The final scene points judges back to the upload-ready files: live URL, deck, report, and source ZIP.",
     callout: "Judges get a complete product story and a complete delivery package.",
     targetRect: { x: 8, y: 24, width: 58, height: 52 },
     cursorPath: [{ x: 88, y: 22 }, { x: 46, y: 50 }],

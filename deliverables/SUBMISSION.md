@@ -1,5 +1,7 @@
 # SHORIR AI Submission
 
+Team: El Bracino
+
 ## Live Website
 
 https://shorir-ai-production.up.railway.app
@@ -14,13 +16,31 @@ Railway deployment configuration is included in `railway.json`.
 
 ## Project Presentation
 
+Required upload filename:
+
+`El Bracino.pptx`
+
+Source artifact:
+
 `SHORIR_AI_Project_Presentation.pptx`
 
 ## Project Documentation / Technical Report
 
+Required upload filename:
+
+`El Bracino.docx`
+
+Source artifact:
+
 `SHORIR_AI_Technical_Report.docx`
 
 ## Complete Source Code
+
+Required upload filename:
+
+`El Bracino.zip`
+
+Source artifact:
 
 `SHORIR_AI_Source_Code.zip`
 

@@ -11,15 +11,15 @@ export function BrandStrip() {
         </span>
       </Link>
       <div className="event-marks" aria-label="Mindsparks 26 CodeFront Challenge by AUST IDC">
-        <Link className="event-mark event-mark--mindsparks" to="/about-competition">
+        <span className="event-mark event-mark--mindsparks">
           <img src="/branding/Mindsparks 26 Logo.png" alt="Mindsparks 26" />
-        </Link>
-        <Link className="event-mark event-mark--codefront" to="/about-competition">
+        </span>
+        <span className="event-mark event-mark--codefront">
           <img src="/branding/Code front.png" alt="CodeFront Challenge" />
-        </Link>
-        <Link className="event-mark event-mark--idc" to="/about-competition">
+        </span>
+        <span className="event-mark event-mark--idc">
           <img src="/branding/AUST IDC - Black.png" alt="AUST Innovation and Design Club" />
-        </Link>
+        </span>
       </div>
     </div>
   );

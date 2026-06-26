@@ -49,7 +49,7 @@
   },
   {
     "id": "08-submission",
-    "route": "/about-competition",
+    "route": "/demo?scene=submission",
     "title": "Submission",
     "fileName": "08-submission.png"
   }

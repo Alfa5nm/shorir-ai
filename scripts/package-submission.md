@@ -1,6 +1,12 @@
 # Package Submission Checklist
 
-Final files should be named:
+Final upload files for Team El Bracino should be named:
+
+- `deliverables/El Bracino.docx`
+- `deliverables/El Bracino.pptx`
+- `deliverables/El Bracino.zip`
+
+Supporting release artifacts are:
 
 - `deliverables/SHORIR_AI_Source_Code.zip`
 - `deliverables/SHORIR_AI_Project_Presentation.pptx`

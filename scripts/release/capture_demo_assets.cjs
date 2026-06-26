@@ -16,7 +16,7 @@ const frames = [
   { id: "05-diet", route: "/diet-chart", title: "Diet chart" },
   { id: "06-calorie", route: "/calorie-check", title: "Calorie check" },
   { id: "07-progress", route: "/progress", title: "Progress" },
-  { id: "08-submission", route: "/about-competition", title: "Submission" }
+  { id: "08-submission", route: "/demo?scene=submission", title: "Submission" }
 ];
 
 async function capture() {

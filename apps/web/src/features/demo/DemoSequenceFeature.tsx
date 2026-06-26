@@ -1,7 +1,7 @@
 import { ArrowLeft, ArrowRight, ExternalLink, Pause, Play, Sparkles } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Badge } from "../../components/ui/badge";
 import { Button, ButtonLink } from "../../components/ui/button";
 import { demoSequence, type DemoScene } from "./demoSequence";
@@ -27,7 +27,11 @@ function sceneStyle(scene: DemoScene, isPlaying: boolean) {
 }
 
 export function DemoSequenceFeature() {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialScene = searchParams.get("scene");
+  const [activeIndex, setActiveIndex] = useState(() =>
+    Math.max(0, demoSequence.findIndex((scene) => scene.id === initialScene))
+  );
   const [isPlaying, setIsPlaying] = useState(true);
   const activeScene = demoSequence[activeIndex] ?? demoSequence[0]!;
   const progressLabel = `${activeIndex + 1} / ${demoSequence.length}`;
@@ -42,7 +46,12 @@ export function DemoSequenceFeature() {
   }, [activeScene.durationMs, activeIndex, isPlaying]);
 
   function goTo(index: number) {
-    setActiveIndex((index + demoSequence.length) % demoSequence.length);
+    const nextIndex = (index + demoSequence.length) % demoSequence.length;
+    setActiveIndex(nextIndex);
+    setSearchParams(
+      nextIndex === 0 ? {} : { scene: demoSequence[nextIndex]!.id },
+      { replace: true }
+    );
   }
 
   function previous() {

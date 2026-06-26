@@ -34,9 +34,9 @@ Use `/demo` as the main presentation surface. The route auto-plays through the p
    - Focus: session history and detector quality.
    - Message: users see what was accepted, paused, rejected, and improved.
 
-8. Submission package - `/about-competition`
-   - Focus: competition and artifact summary.
-   - Message: the live link, deck, report, demo video, and source package are ready.
+8. Submission package - `/demo?scene=submission`
+   - Focus: upload-ready artifacts.
+   - Message: the live link, deck, report, and source package are ready.
 
 ## Presenter Flow
 

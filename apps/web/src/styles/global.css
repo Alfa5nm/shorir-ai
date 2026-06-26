@@ -4294,7 +4294,7 @@ button.primary-action,
 
 .site-footer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
 }
 

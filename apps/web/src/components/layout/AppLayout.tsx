@@ -1,7 +1,6 @@
 import {
   Apple,
   BarChart3,
-  BookOpen,
   Camera,
   ClipboardList,
   Dumbbell,
@@ -12,19 +11,19 @@ import {
   Sun
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
-import { Link, NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useAppLanguage } from "../../app/language";
 import { BrandStrip } from "../branding/BrandStrip";
 
 const navItems = [
-  { href: "/", label: "Dashboard", labelBn: "ড্যাশবোর্ড", icon: Home },
-  { href: "/coach", label: "Pose Coach", labelBn: "পোজ কোচ", icon: Camera },
-  { href: "/exercise-library", label: "Exercises", labelBn: "এক্সারসাইজ", icon: Dumbbell },
-  { href: "/diet-chart", label: "Diet Chart", labelBn: "ডায়েট চার্ট", icon: Apple },
-  { href: "/calorie-check", label: "Calorie Check", labelBn: "ক্যালরি চেক", icon: ClipboardList },
-  { href: "/progress", label: "Progress", labelBn: "প্রগ্রেস", icon: BarChart3 },
-  { href: "/demo", label: "Demo", labelBn: "ডেমো", icon: MonitorPlay },
-  { href: "/onboarding", label: "Profile", labelBn: "প্রোফাইল", icon: Settings2 }
+  { href: "/", label: "Dashboard", labelBn: "\u09a1\u09cd\u09af\u09be\u09b6\u09ac\u09cb\u09b0\u09cd\u09a1", icon: Home },
+  { href: "/coach", label: "Pose Coach", labelBn: "\u09aa\u09cb\u099c \u0995\u09cb\u099a", icon: Camera },
+  { href: "/exercise-library", label: "Exercises", labelBn: "\u098f\u0995\u09cd\u09b8\u09be\u09b0\u09b8\u09be\u0987\u099c", icon: Dumbbell },
+  { href: "/diet-chart", label: "Diet Chart", labelBn: "\u09a1\u09be\u09df\u09c7\u099f \u099a\u09be\u09b0\u09cd\u099f", icon: Apple },
+  { href: "/calorie-check", label: "Calorie Check", labelBn: "\u0995\u09cd\u09af\u09be\u09b2\u09b0\u09bf \u099a\u09c7\u0995", icon: ClipboardList },
+  { href: "/progress", label: "Progress", labelBn: "\u09aa\u09cd\u09b0\u0997\u09cd\u09b0\u09c7\u09b8", icon: BarChart3 },
+  { href: "/demo", label: "Demo", labelBn: "\u09a1\u09c7\u09ae\u09cb", icon: MonitorPlay },
+  { href: "/onboarding", label: "Profile", labelBn: "\u09aa\u09cd\u09b0\u09cb\u09ab\u09be\u0987\u09b2", icon: Settings2 }
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -60,7 +59,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               );
             })}
           </nav>
-          <div className="language-toggle" aria-label={t("Language", "ভাষা")}>
+          <div className="language-toggle" aria-label={t("Language", "\u09ad\u09be\u09b7\u09be")}>
             <button
               type="button"
               className={language === "en" ? "is-active" : ""}
@@ -75,7 +74,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               onClick={() => setLanguage("bn")}
               aria-pressed={language === "bn"}
             >
-              বাংলা
+              {"\u09ac\u09be\u0982\u09b2\u09be"}
             </button>
           </div>
           <button
@@ -83,11 +82,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
             type="button"
             title={t(
               `Switch to ${theme === "light" ? "dark" : "light"} mode`,
-              `${theme === "light" ? "ডার্ক" : "লাইট"} মোডে যান`
+              `${theme === "light" ? "\u09a1\u09be\u09b0\u09cd\u0995" : "\u09b2\u09be\u0987\u099f"} \u09ae\u09cb\u09a1\u09c7 \u09af\u09be\u09a8`
             )}
             aria-label={t(
               `Switch to ${theme === "light" ? "dark" : "light"} mode`,
-              `${theme === "light" ? "ডার্ক" : "লাইট"} মোডে যান`
+              `${theme === "light" ? "\u09a1\u09be\u09b0\u09cd\u0995" : "\u09b2\u09be\u0987\u099f"} \u09ae\u09cb\u09a1\u09c7 \u09af\u09be\u09a8`
             )}
             onClick={() => setTheme((current) => (current === "light" ? "dark" : "light"))}
           >
@@ -99,17 +98,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <footer className="site-footer">
         <div>
           <span>SHORIR AI</span>
-          <p>{t("AI-assisted fitness guidance built for Mindsparks 26 CodeFront Challenge.", "Mindsparks 26 CodeFront Challenge-এর জন্য তৈরি AI-সহায়ক ফিটনেস গাইড।")}</p>
+          <p>
+            {t(
+              "AI-assisted fitness guidance built for Mindsparks 26 CodeFront Challenge.",
+              "Mindsparks 26 CodeFront Challenge-\u098f\u09b0 \u099c\u09a8\u09cd\u09af \u09a4\u09c8\u09b0\u09bf AI-\u09b8\u09b9\u09be\u09df\u0995 \u09ab\u09bf\u099f\u09a8\u09c7\u09b8 \u0997\u09be\u0987\u09a1\u0964"
+            )}
+          </p>
         </div>
         <div className="site-footer__marks" aria-label="Mindsparks 26 CodeFront Challenge by AUST IDC">
           <img src="/branding/Mindsparks 26 Logo.png" alt="Mindsparks 26" />
           <img src="/branding/Code front.png" alt="CodeFront Challenge" />
           <img src="/branding/AUST IDC - Black.png" alt="AUST Innovation and Design Club" />
         </div>
-        <Link to="/about-competition">
-          <BookOpen size={16} />
-          {t("Project & competition", "প্রজেক্ট ও প্রতিযোগিতা")}
-        </Link>
       </footer>
     </div>
   );

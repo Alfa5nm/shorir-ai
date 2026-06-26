@@ -260,7 +260,7 @@ add_table(doc, ["Step", "Route", "Purpose"], [
     ("5", "/diet-chart", "Generate local diet guidance."),
     ("6", "/calorie-check", "Review calories from desktop or phone capture."),
     ("7", "/progress", "Close with saved session diagnostics."),
-    ("8", "/about-competition", "Show submission package."),
+    ("8", "/demo?scene=submission", "Close on the upload-ready submission package."),
 ], [0.55, 2.15, 3.8])
 add_figure(doc, FRAMES / "02-demo.png", "Figure 2. Interactive demo tour with focal highlight, cursor pointer, and presenter controls.")
 
