@@ -1,13 +1,13 @@
 # SHORIR AI
 
-SHORIR AI is a Bangla-first, privacy-aware fitness companion by Team El Bracino. The competition MVP combines
-camera-calibrated squat coaching, an adaptive animated coach, cautious meal review, onboarding, and progress
-summaries.
+SHORIR AI is a Bangla-first, privacy-aware fitness companion by Team El Bracino. The competition product combines
+strict camera-calibrated squat, push-up, and lunge coaching with an adaptive animated coach, exercise guidance,
+Bangladeshi diet planning, calorie review, onboarding, and progress diagnostics.
 
 ## Current Features
 
 - Persistent anonymous browser profile and safety-aware onboarding.
-- Browser-side MediaPipe squat and standard floor push-up analysis.
+- Browser-side MediaPipe squat, standard floor push-up, and forward-lunge analysis.
 - Calibrated activity region, personal depth threshold, and relative camera-distance checks.
 - Adaptive animated squat and push-up demonstrations.
 - Direct encrypted WebRTC phone camera pairing through an automated HTTPS QR flow.
@@ -15,6 +15,8 @@ summaries.
 - Desktop and QR phone calorie/meal-image review.
 - Saved session and coach-review progress dashboard.
 - Independent exercise-library contribution module.
+- Responsive white-and-blue interface with persistent light and dark themes.
+- Mindsparks 26, CodeFront Challenge, and AUST IDC product branding.
 
 ## Architecture
 
@@ -51,6 +53,7 @@ Verification:
 pnpm -r typecheck
 pnpm -r lint
 pnpm -r build
+pnpm -r test
 ```
 
 Copy the example environment files only when configuring optional services:
@@ -81,7 +84,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md). Beginner exercise-library work is docum
 - WebRTC production reliability requires TURN and a shared signaling store before horizontal scaling.
 - The memory database resets when the API restarts; Supabase is available for persistence.
 - Meal recognition quality depends on the configured AI adapter; local stub output is intentionally limited.
-- Push-up and lunge pose analysis are not part of this MVP.
+- Real-device thresholds still require continued calibration across more devices and environments.
 
 ## License
 

@@ -3,6 +3,7 @@ import { createContext, useContext } from "react";
 import { createHttpApiClient } from "../adapters/httpApiClient/httpApiClient";
 import { createMediapipePoseEstimator } from "../adapters/mediapipePose/mediapipePoseEstimator";
 import { createStaticContentSource } from "../adapters/staticContent/staticContentSource";
+import { AppLanguageProvider } from "./language";
 import type { ApiClient } from "../ports/apiClient";
 import type { ContentSource } from "../ports/contentSource";
 import type { PoseEstimator } from "../ports/poseEstimator";
@@ -24,7 +25,11 @@ const services: AppServices = {
 const AppServicesContext = createContext<AppServices | null>(null);
 
 export function AppProviders({ children }: { children: ReactNode }) {
-  return <AppServicesContext.Provider value={services}>{children}</AppServicesContext.Provider>;
+  return (
+    <AppServicesContext.Provider value={services}>
+      <AppLanguageProvider>{children}</AppLanguageProvider>
+    </AppServicesContext.Provider>
+  );
 }
 
 export function useAppServices() {

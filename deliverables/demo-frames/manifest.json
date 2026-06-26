@@ -1,0 +1,56 @@
+[
+  {
+    "id": "00-onboarding",
+    "route": "/onboarding",
+    "title": "Onboarding",
+    "fileName": "00-onboarding.png"
+  },
+  {
+    "id": "01-dashboard",
+    "route": "/",
+    "title": "Dashboard",
+    "fileName": "01-dashboard.png"
+  },
+  {
+    "id": "02-demo",
+    "route": "/demo",
+    "title": "Demo sequence",
+    "fileName": "02-demo.png"
+  },
+  {
+    "id": "03-coach",
+    "route": "/coach?exercise=squat",
+    "title": "Pose Coach",
+    "fileName": "03-coach.png"
+  },
+  {
+    "id": "04-exercises",
+    "route": "/exercise-library",
+    "title": "Exercise library",
+    "fileName": "04-exercises.png"
+  },
+  {
+    "id": "05-diet",
+    "route": "/diet-chart",
+    "title": "Diet chart",
+    "fileName": "05-diet.png"
+  },
+  {
+    "id": "06-calorie",
+    "route": "/calorie-check",
+    "title": "Calorie check",
+    "fileName": "06-calorie.png"
+  },
+  {
+    "id": "07-progress",
+    "route": "/progress",
+    "title": "Progress",
+    "fileName": "07-progress.png"
+  },
+  {
+    "id": "08-submission",
+    "route": "/demo?scene=submission",
+    "title": "Submission",
+    "fileName": "08-submission.png"
+  }
+]
