@@ -13,22 +13,24 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
+import { useAppLanguage } from "../../app/language";
 import { BrandStrip } from "../branding/BrandStrip";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: Home },
-  { href: "/coach", label: "Pose Coach", icon: Camera },
-  { href: "/exercise-library", label: "Exercises", icon: Dumbbell },
-  { href: "/diet-chart", label: "Diet Chart", icon: Apple },
-  { href: "/calorie-check", label: "Calorie Check", icon: ClipboardList },
-  { href: "/progress", label: "Progress", icon: BarChart3 },
-  { href: "/demo", label: "Demo", icon: MonitorPlay },
-  { href: "/onboarding", label: "Profile", icon: Settings2 }
+  { href: "/", label: "Dashboard", labelBn: "ড্যাশবোর্ড", icon: Home },
+  { href: "/coach", label: "Pose Coach", labelBn: "পোজ কোচ", icon: Camera },
+  { href: "/exercise-library", label: "Exercises", labelBn: "এক্সারসাইজ", icon: Dumbbell },
+  { href: "/diet-chart", label: "Diet Chart", labelBn: "ডায়েট চার্ট", icon: Apple },
+  { href: "/calorie-check", label: "Calorie Check", labelBn: "ক্যালরি চেক", icon: ClipboardList },
+  { href: "/progress", label: "Progress", labelBn: "প্রগ্রেস", icon: BarChart3 },
+  { href: "/demo", label: "Demo", labelBn: "ডেমো", icon: MonitorPlay },
+  { href: "/onboarding", label: "Profile", labelBn: "প্রোফাইল", icon: Settings2 }
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const isCoachRoute = location.pathname === "/coach";
+  const { language, setLanguage, t } = useAppLanguage();
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     const saved = window.localStorage.getItem("shorir-theme");
     if (saved === "light" || saved === "dark") return saved;
@@ -49,19 +51,44 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <nav className="site-nav" aria-label="Primary navigation">
             {navItems.map((item) => {
               const Icon = item.icon;
+              const label = t(item.label, item.labelBn);
               return (
-                <NavLink key={item.href} to={item.href} title={item.label}>
+                <NavLink key={item.href} to={item.href} title={label}>
                   <Icon size={17} aria-hidden="true" />
-                  <span>{item.label}</span>
+                  <span>{label}</span>
                 </NavLink>
               );
             })}
           </nav>
+          <div className="language-toggle" aria-label={t("Language", "ভাষা")}>
+            <button
+              type="button"
+              className={language === "en" ? "is-active" : ""}
+              onClick={() => setLanguage("en")}
+              aria-pressed={language === "en"}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              className={language === "bn" ? "is-active" : ""}
+              onClick={() => setLanguage("bn")}
+              aria-pressed={language === "bn"}
+            >
+              বাংলা
+            </button>
+          </div>
           <button
             className="theme-toggle"
             type="button"
-            title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
-            aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+            title={t(
+              `Switch to ${theme === "light" ? "dark" : "light"} mode`,
+              `${theme === "light" ? "ডার্ক" : "লাইট"} মোডে যান`
+            )}
+            aria-label={t(
+              `Switch to ${theme === "light" ? "dark" : "light"} mode`,
+              `${theme === "light" ? "ডার্ক" : "লাইট"} মোডে যান`
+            )}
             onClick={() => setTheme((current) => (current === "light" ? "dark" : "light"))}
           >
             {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
@@ -72,11 +99,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <footer className="site-footer">
         <div>
           <span>SHORIR AI</span>
-          <p>AI-assisted fitness guidance built for Mindsparks 26 CodeFront Challenge.</p>
+          <p>{t("AI-assisted fitness guidance built for Mindsparks 26 CodeFront Challenge.", "Mindsparks 26 CodeFront Challenge-এর জন্য তৈরি AI-সহায়ক ফিটনেস গাইড।")}</p>
+        </div>
+        <div className="site-footer__marks" aria-label="Mindsparks 26 CodeFront Challenge by AUST IDC">
+          <img src="/branding/Mindsparks 26 Logo.png" alt="Mindsparks 26" />
+          <img src="/branding/Code front.png" alt="CodeFront Challenge" />
+          <img src="/branding/AUST IDC - Black.png" alt="AUST Innovation and Design Club" />
         </div>
         <Link to="/about-competition">
           <BookOpen size={16} />
-          Project & competition
+          {t("Project & competition", "প্রজেক্ট ও প্রতিযোগিতা")}
         </Link>
       </footer>
     </div>

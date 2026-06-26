@@ -3,6 +3,7 @@ import { Activity, ArrowLeft, BookOpen, Camera, CircleStop, Loader2, RefreshCw, 
 import { QRCodeSVG } from "qrcode.react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { normalizeLanguage, useAppLanguage } from "../../app/language";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useAppServices } from "../../app/providers";
 import { ensureProfileId as ensureBrowserProfileId } from "../../app/profileSession";
@@ -26,7 +27,7 @@ import { localizedCoachFeedback } from "./coachingLanguage";
 
 type CameraMode = "local" | "phone" | null;
 type PoseSource = HTMLVideoElement;
-type CoachTab = "guide" | "setup" | "diagnostics" | "review";
+type CoachTab = "setup" | "diagnostics" | "review";
 
 const poseConnections = [
   ["left_shoulder", "left_elbow"],
@@ -149,6 +150,7 @@ function RevealSection({ children, className = "" }: { children: ReactNode; clas
 
 export function PoseCoachFeature() {
   const { apiClient, poseEstimator } = useAppServices();
+  const { language, setLanguage, t } = useAppLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedExercise = searchParams.get("exercise");
   const initialExercise = requestedSupportedExercise(requestedExercise);
@@ -182,7 +184,7 @@ export function PoseCoachFeature() {
   const [savedSession, setSavedSession] = useState<WorkoutSession | null>(null);
   const [coachReview, setCoachReview] = useState<CoachReview | null>(null);
   const [sessionDiagnostics, setSessionDiagnostics] = useState<SessionDiagnosticsSummary | null>(null);
-  const [coachLanguage, setCoachLanguage] = useState<LanguagePreference>("mixed");
+  const [coachLanguage, setCoachLanguage] = useState<LanguagePreference>(language);
   const activeSourceGuide = sourceGuide?.liveCoachExercise === selectedExercise ? sourceGuide : null;
 
   const statusTone = useMemo(() => {
@@ -247,15 +249,19 @@ export function PoseCoachFeature() {
       .then(async (profileId) => {
         profileIdRef.current = profileId;
         const profile = await apiClient.getProfile(profileId);
-        if (active && profile) setCoachLanguage(profile.language);
+        if (active && profile) {
+          const profileLanguage = normalizeLanguage(profile.language);
+          setCoachLanguage(profileLanguage);
+          setLanguage(profileLanguage);
+        }
       })
       .catch(() => {
-        if (active) setCoachLanguage("mixed");
+        if (active) setCoachLanguage(language);
       });
     return () => {
       active = false;
     };
-  }, [apiClient]);
+  }, [apiClient, language, setLanguage]);
 
   const selectExercise = useCallback((exercise: SupportedExercise) => {
     selectedExerciseRef.current = exercise;
@@ -638,11 +644,7 @@ export function PoseCoachFeature() {
     }
   }
 
-  const [activeTab, setActiveTab] = useState<CoachTab>("guide");
-
-  useEffect(() => {
-    if (phoneSession) setActiveTab("setup");
-  }, [phoneSession]);
+  const [activeTab, setActiveTab] = useState<CoachTab>("setup");
 
   const statusText = isTracking
     ? "Tracking live"
@@ -653,20 +655,19 @@ export function PoseCoachFeature() {
         : "Ready";
 
   const tabs: Array<{ id: CoachTab; label: string; badge: string | undefined }> = [
-    { id: "guide", label: "Guide", badge: undefined },
-    { id: "setup", label: "Setup", badge: phoneSession ? "QR" : undefined },
-    { id: "diagnostics", label: "Diagnostics", badge: sessionDiagnostics ? String(sessionDiagnostics.qualityScore) : undefined },
-    { id: "review", label: "Review", badge: coachReview ? "New" : undefined }
+    { id: "setup", label: t("Setup", "সেটআপ"), badge: phoneSession ? "QR" : undefined },
+    { id: "diagnostics", label: t("Diagnostics", "ডায়াগনস্টিকস"), badge: sessionDiagnostics ? String(sessionDiagnostics.qualityScore) : undefined },
+    { id: "review", label: t("Review", "রিভিউ"), badge: coachReview ? t("New", "নতুন") : undefined }
   ];
 
   return (
     <section className="pose-coach">
       <header className="pose-coach__header">
         <div className="pose-coach__title">
-          <StatusPill tone={statusTone}>{statusText}</StatusPill>
+          <StatusPill tone={statusTone}>{t(statusText, statusText === "Tracking live" ? "লাইভ ট্র্যাকিং" : statusText === "Waiting for phone" ? "ফোনের অপেক্ষা" : statusText === "Needs attention" ? "মনোযোগ দরকার" : "প্রস্তুত")}</StatusPill>
           <div>
-            <h1>{exerciseDefinitions[selectedExercise].heading}</h1>
-            <p>Browser-first pose coaching. Phone video uses encrypted direct WebRTC when selected.</p>
+            <h1>{t(exerciseDefinitions[selectedExercise].heading, `${exerciseDefinitions[selectedExercise].name} পোজ কোচ`)}</h1>
+            <p>{t("Browser-first pose coaching. Phone video uses encrypted direct WebRTC when selected.", "ব্রাউজার-ভিত্তিক পোজ কোচিং। ফোন ভিডিও চালু করলে এনক্রিপ্টেড WebRTC কানেকশন ব্যবহার হয়।")}</p>
           </div>
         </div>
 
@@ -679,8 +680,8 @@ export function PoseCoachFeature() {
               onClick={() => selectExercise(exercise)}
               disabled={isBusy || isTracking || Boolean(phoneSession)}
             >
-              <strong>{exerciseDefinitions[exercise].name}</strong>
-              <span>{exerciseDescription(exercise)}</span>
+              <strong>{t(exerciseDefinitions[exercise].name, exercise === "squat" ? "স্কোয়াট" : exercise === "push-up" ? "পুশ-আপ" : "লাঞ্জ")}</strong>
+              <span>{t(exerciseDescription(exercise), exercise === "squat" ? "দাঁড়িয়ে লোয়ার-বডি কোচিং" : exercise === "push-up" ? "সাইড-ভিউ ফ্লোর কোচিং" : "স্প্লিট-স্ট্যান্স লোয়ার-বডি কোচিং")}</span>
             </button>
           ))}
         </div>
@@ -711,7 +712,7 @@ export function PoseCoachFeature() {
                 }`}
                 style={boxStyle(displayedActivityRegion, cameraMode === "local")}
               >
-                <span>{metrics.calibrationPhase === "complete" ? "Activity area" : "Set up inside this area"}</span>
+                <span>{t(metrics.calibrationPhase === "complete" ? "Activity area" : "Set up inside this area", metrics.calibrationPhase === "complete" ? "অ্যাক্টিভিটি এরিয়া" : "এই এরিয়ার মধ্যে দাঁড়ান")}</span>
               </div>
             )}
             {isTracking && metrics.livePoseBox && (
@@ -723,7 +724,7 @@ export function PoseCoachFeature() {
             )}
             {!isTracking && (
               <div className="pose-stage__empty">
-                {phoneSession ? "Waiting for phone camera" : "Camera preview appears here"}
+                {phoneSession ? t("Waiting for phone camera", "ফোন ক্যামেরার অপেক্ষা") : t("Camera preview appears here", "ক্যামেরা প্রিভিউ এখানে আসবে")}
               </div>
             )}
           </div>
@@ -734,18 +735,64 @@ export function PoseCoachFeature() {
           </div>
         </div>
 
+        <aside className="coach-motion-panel" aria-label={t("Guide coach", "গাইড কোচ")}>
+          <AnimatedExerciseCoach
+            exercise={selectedExercise}
+            phase={metrics.phase}
+            confidence={metrics.confidence}
+            primaryAngle={metrics.primaryAngle}
+            isTracking={isTracking}
+            language={coachLanguage}
+          />
+          <section className="coach-guide-context" aria-labelledby="coach-guide-context-title">
+            <div className="coach-guide-context__heading">
+              <BookOpen size={21} aria-hidden="true" />
+              <div>
+                <span>{t(activeSourceGuide ? "Practice from exercise library" : "Coach focus", activeSourceGuide ? "লাইব্রেরি থেকে প্র্যাকটিস" : "কোচ ফোকাস")}</span>
+                <h2 id="coach-guide-context-title">
+                  {activeSourceGuide?.nameEn ?? t(exerciseDefinitions[selectedExercise].name, selectedExercise === "squat" ? "স্কোয়াট" : selectedExercise === "push-up" ? "পুশ-আপ" : "লাঞ্জ")}
+                </h2>
+              </div>
+              {activeSourceGuide && (
+                <Link to={`/exercise-library?guide=${encodeURIComponent(activeSourceGuide.id)}`}>
+                  <ArrowLeft size={17} aria-hidden="true" />
+                  {t("Back to guide", "গাইডে ফিরুন")}
+                </Link>
+              )}
+            </div>
+            <div className="coach-guide-context__cues">
+              <div>
+                <strong>{t("Set up", "সেটআপ")}</strong>
+                <span>
+                  {activeSourceGuide?.setupSteps[0] ??
+                    (selectedExercise === "push-up"
+                      ? t("Use a side-view top plank with shoulders, hips, and ankles visible.", "কাঁধ, কোমর ও গোড়ালি দেখা যায় এমন সাইড-ভিউ টপ প্ল্যাঙ্ক নিন।")
+                      : t("Use a clear side view with your full movement visible.", "পুরো মুভমেন্ট দেখা যায় এমন পরিষ্কার সাইড ভিউ নিন।"))}
+                </span>
+              </div>
+              <div>
+                <strong>{t("Camera", "ক্যামেরা")}</strong>
+                <span>
+                  {activeSourceGuide?.cameraGuidance[0] ??
+                    t("Keep the camera steady and stay inside the activity area while counting.", "ক্যামেরা স্থির রাখুন এবং কাউন্টিংয়ের সময় অ্যাক্টিভিটি এরিয়ার মধ্যে থাকুন।")}
+                </span>
+              </div>
+            </div>
+          </section>
+        </aside>
+
         <aside className="pose-readout" aria-label="Live coach controls">
           <div className="pose-readout__summary">
             <div className="metric-tile metric-tile--primary">
-              <span>Reps</span>
+              <span>{t("Reps", "রেপ")}</span>
               <strong>{metrics.reps}</strong>
             </div>
             <div className="metric-tile">
-              <span>Confidence</span>
+              <span>{t("Confidence", "কনফিডেন্স")}</span>
               <strong>{Math.round(metrics.confidence * 100)}%</strong>
             </div>
             <div className="metric-tile">
-              <span>Phase</span>
+              <span>{t("Phase", "ধাপ")}</span>
               <strong>{metrics.phase.replace("_", " ")}</strong>
             </div>
             <div className="metric-tile">
@@ -775,11 +822,11 @@ export function PoseCoachFeature() {
           <div className="pose-actions">
             <button type="button" onClick={startTracking} disabled={isBusy || isTracking}>
               {isBusy && !isTracking ? <Loader2 className="spin" size={18} /> : <Camera size={18} />}
-              Use this device
+              {t("Use this device", "এই ডিভাইস")}
             </button>
             <button type="button" onClick={startPhoneCamera} disabled={isBusy || isTracking || Boolean(phoneSession)}>
               <Smartphone size={18} />
-              Use phone
+              {t("Use phone", "ফোন ব্যবহার")}
             </button>
             <button
               className="pose-actions__calibrate"
@@ -788,7 +835,7 @@ export function PoseCoachFeature() {
               disabled={isBusy || !isTracking}
             >
               <RefreshCw size={18} />
-              Recalibrate area
+              {t("Recalibrate area", "এরিয়া সেট করুন")}
             </button>
             <button
               className="pose-actions__end"
@@ -797,7 +844,7 @@ export function PoseCoachFeature() {
               disabled={isBusy || (!isTracking && !phoneSession)}
             >
               {isBusy && isTracking ? <Loader2 className="spin" size={18} /> : <CircleStop size={18} />}
-              {phoneSession && !isTracking ? "Cancel connection" : "End and review"}
+              {phoneSession && !isTracking ? t("Cancel connection", "কানেকশন বাতিল") : t("End and review", "শেষ ও রিভিউ")}
             </button>
           </div>
 
@@ -806,7 +853,7 @@ export function PoseCoachFeature() {
             <div className="session-summary">
               <Save size={18} aria-hidden="true" />
               <span>
-                Saved {savedSession.repsCompleted} reps over {savedSession.durationSeconds}s.
+                {t("Saved", "সেভ হয়েছে")} {savedSession.repsCompleted} {t("reps over", "রেপ")} {savedSession.durationSeconds}s.
               </span>
             </div>
           )}
@@ -814,7 +861,7 @@ export function PoseCoachFeature() {
       </div>
 
       <RevealSection className="pose-details">
-        <div className="pose-details__tabs" role="tablist" aria-label="Coach details">
+        <div className="pose-details__tabs" role="tablist" aria-label={t("Coach details", "কোচ ডিটেইলস")}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -831,54 +878,6 @@ export function PoseCoachFeature() {
         </div>
 
         <div className="pose-details__panel" role="tabpanel">
-          {activeTab === "guide" && (
-            <div className="pose-guide-grid">
-              <AnimatedExerciseCoach
-                exercise={selectedExercise}
-                phase={metrics.phase}
-                confidence={metrics.confidence}
-                primaryAngle={metrics.primaryAngle}
-                isTracking={isTracking}
-                language={coachLanguage}
-              />
-              <section className="coach-guide-context" aria-labelledby="coach-guide-context-title">
-                <div className="coach-guide-context__heading">
-                  <BookOpen size={21} aria-hidden="true" />
-                  <div>
-                    <span>{activeSourceGuide ? "Practice from exercise library" : "Coach focus"}</span>
-                    <h2 id="coach-guide-context-title">
-                      {activeSourceGuide?.nameEn ?? exerciseDefinitions[selectedExercise].name}
-                    </h2>
-                  </div>
-                  {activeSourceGuide && (
-                    <Link to={`/exercise-library?guide=${encodeURIComponent(activeSourceGuide.id)}`}>
-                      <ArrowLeft size={17} aria-hidden="true" />
-                      Back to guide
-                    </Link>
-                  )}
-                </div>
-                <div className="coach-guide-context__cues">
-                  <div>
-                    <strong>Set up</strong>
-                    <span>
-                      {activeSourceGuide?.setupSteps[0] ??
-                        (selectedExercise === "push-up"
-                          ? "Use a side-view top plank with shoulders, hips, and ankles visible."
-                          : "Use a clear side view with your full movement visible.")}
-                    </span>
-                  </div>
-                  <div>
-                    <strong>Camera</strong>
-                    <span>
-                      {activeSourceGuide?.cameraGuidance[0] ??
-                        "Keep the camera steady and stay inside the activity area while counting."}
-                    </span>
-                  </div>
-                </div>
-              </section>
-            </div>
-          )}
-
           {activeTab === "setup" && (
             <div className="pose-setup-grid">
               <div className="calibration-readout">
