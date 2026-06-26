@@ -42,6 +42,19 @@ export function AppLayout({ children }: { children: ReactNode }) {
     window.localStorage.setItem("shorir-theme", theme);
   }, [theme]);
 
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const x = (e.clientX / window.innerWidth) * 100;
+      const y = (e.clientY / window.innerHeight) * 100;
+      document.documentElement.style.setProperty('--mouse-x', `${x}%`);
+      document.documentElement.style.setProperty('--mouse-y', `${y}%`);
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
+
   return (
     <div className={`app-shell${isCoachRoute ? " app-shell--coach" : ""}`}>
       <header className="site-header">
@@ -111,6 +124,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <img src="/branding/AUST IDC - Black.png" alt="AUST Innovation and Design Club" />
         </div>
       </footer>
+      <div className="ambient-orb ambient-orb--top" aria-hidden="true" />
+      <div className="ambient-orb ambient-orb--bottom" aria-hidden="true" />
+      <svg className="noise-svg-overlay" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+        <filter id="noiseFilter">
+          <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#noiseFilter)" />
+      </svg>
     </div>
   );
 }

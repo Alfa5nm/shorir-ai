@@ -206,7 +206,7 @@ export function OnboardingFeature() {
 
         <div className="onboarding-panel">
           {activeStep === "basics" && (
-            <section className="form-section onboarding-layer">
+            <section className="form-section onboarding-layer" key="basics">
               <h2>{t("Basics", "বেসিক")}</h2>
               <p>{t("Start with identity, language, and your main goal.", "নাম, ভাষা ও মূল লক্ষ্য দিয়ে শুরু করুন।")}</p>
               <div className="form-grid">
@@ -245,7 +245,7 @@ export function OnboardingFeature() {
           )}
 
           {activeStep === "body" && (
-            <section className="form-section onboarding-layer">
+            <section className="form-section onboarding-layer" key="body">
               <h2>{t("Body metrics", "বডি মেট্রিক")}</h2>
               <p>{t("These are optional, but improve calorie and progress estimates.", "এগুলো ঐচ্ছিক, তবে ক্যালরি ও প্রগ্রেস অনুমান উন্নত করে।")}</p>
               <div className="form-grid">
@@ -323,7 +323,7 @@ export function OnboardingFeature() {
           )}
 
           {activeStep === "training" && (
-            <section className="form-section onboarding-layer">
+            <section className="form-section onboarding-layer" key="training">
               <h2>{t("Training setup", "ট্রেনিং সেটআপ")}</h2>
               <p>{t("Pick your level, equipment, and realistic training days.", "আপনার লেভেল, সরঞ্জাম ও বাস্তবসম্মত ট্রেনিং দিন বেছে নিন।")}</p>
               <div className="form-grid">
@@ -369,7 +369,7 @@ export function OnboardingFeature() {
           )}
 
           {activeStep === "safety" && (
-            <section className="form-section onboarding-layer">
+            <section className="form-section onboarding-layer" key="safety">
               <div className="safety-heading">
                 <ShieldAlert size={20} />
                 <div>
